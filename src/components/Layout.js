@@ -12,12 +12,13 @@ import {
   FiSettings,
   FiLogOut,
   FiChevronLeft,
-  FiChevronRight
+  FiChevronRight,
+  FiPlus
 } from 'react-icons/fi';
 import { FaToiletPaper, FaTruckMoving } from 'react-icons/fa';
 import './Layout.css';
 
-const Layout = ({ children, user, onLogout, currentPage, onNavigate }) => {
+const Layout = ({ children, user, onLogout, currentPage, onNavigate, pageTitle, onAddBooking, showAddBookingButton }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const menuItems = [
@@ -70,6 +71,13 @@ const Layout = ({ children, user, onLogout, currentPage, onNavigate }) => {
           ))}
         </nav>
 
+        <div className="sidebar-footer">
+          <button className="sidebar-logout-btn" onClick={onLogout}>
+            <span className="nav-icon"><FiLogOut /></span>
+            {!sidebarCollapsed && <span className="nav-label">Logout</span>}
+          </button>
+        </div>
+
       </aside>
 
       {/* MAIN CONTENT */}
@@ -77,22 +85,14 @@ const Layout = ({ children, user, onLogout, currentPage, onNavigate }) => {
 
         <header className="top-header">
           <h1 className="page-title">
-            {menuItems.find(i => i.id === currentPage)?.label || 'Dashboard'}
+            {pageTitle || menuItems.find(i => i.id === currentPage)?.label || 'Dashboard'}
           </h1>
-
-          <div className="header-actions">
-            <div className="admin-info">
-              <span className="admin-name">
-                {user?.firstName} {user?.lastName}
-              </span>
-              <span className="admin-role">Administrator</span>
-            </div>
-
-            <button className="logout-btn" onClick={onLogout}>
-              <FiLogOut />
-              <span>Logout</span>
+          {showAddBookingButton && (
+            <button className="header-add-booking-btn" onClick={onAddBooking}>
+              <FiPlus />
+              <span>Add Booking</span>
             </button>
-          </div>
+          )}
         </header>
 
         <main className="content-area">

@@ -1,26 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './Bookings.css';
 
-const Bookings = () => {
-  const [activeTab, setActiveTab] = useState('all');
-  const [bookings, setBookings] = useState([]);
+const Bookings = ({ onViewBooking }) => {
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [allBookings, setAllBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [showQuotesModal, setShowQuotesModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [selectedDriver, setSelectedDriver] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
-  const [quotations, setQuotations] = useState([]);
-  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTruckType, setSelectedTruckType] = useState('all');
+  const [assignmentFilter, setAssignmentFilter] = useState('all');
 
-  const tabs = [
-    { id: 'all', label: 'All', count: 45 },
-    { id: 'pending', label: 'Pending', count: 12 },
-    { id: 'confirmed', label: 'Confirmed', count: 8 },
-    { id: 'assigned', label: 'Assigned', count: 15 },
-    { id: 'in_progress', label: 'In Progress', count: 10 },
-  ];
+  const statusOptions = useMemo(() => {
+    const countByStatus = allBookings.reduce((accumulator, booking) => {
+      accumulator[booking.status] = (accumulator[booking.status] || 0) + 1;
+      return accumulator;
+    }, {});
+
+    return [
+      { id: 'all', label: 'All', count: allBookings.length },
+      { id: 'pending', label: 'Pending', count: countByStatus.pending || 0 },
+      { id: 'confirmed', label: 'Confirmed', count: countByStatus.confirmed || 0 },
+      { id: 'assigned', label: 'Assigned', count: countByStatus.assigned || 0 },
+      { id: 'in_progress', label: 'In Progress', count: countByStatus.in_progress || 0 },
+    ];
+  }, [allBookings]);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -49,17 +56,61 @@ const Bookings = () => {
         assignedDriver: booking.driverId?.userId ? `${booking.driverId.userId.firstName} ${booking.driverId.userId.lastName}` : null,
         driverId: booking.driverId?._id || null
       }));
-      setBookings(transformedBookings.filter(b => activeTab === 'all' || b.status === activeTab));
+      setAllBookings(transformedBookings);
     } catch (err) {
       console.error('Failed to fetch bookings:', err);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  const truckTypeOptions = useMemo(
+    () => Array.from(new Set(allBookings.map((booking) => booking.truckType).filter(Boolean))),
+    [allBookings]
+  );
+
+  const filteredBookings = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return allBookings.filter((booking) => {
+      if (selectedStatus !== 'all' && booking.status !== selectedStatus) {
+        return false;
+      }
+
+      if (selectedTruckType !== 'all' && booking.truckType !== selectedTruckType) {
+        return false;
+      }
+
+      if (assignmentFilter === 'assigned' && !booking.assignedDriver) {
+        return false;
+      }
+
+      if (assignmentFilter === 'unassigned' && booking.assignedDriver) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const searchableText = [
+        booking.id,
+        booking.user,
+        booking.fromLocation,
+        booking.toLocation,
+        booking.truckType,
+        booking.assignedDriver || 'unassigned',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [allBookings, assignmentFilter, searchTerm, selectedStatus, selectedTruckType]);
 
   const openAssignModal = async (booking) => {
     setSelectedBooking(booking);
@@ -112,45 +163,6 @@ const Bookings = () => {
     }
   };
 
-  const openQuotesModal = async (booking) => {
-    setSelectedBooking(booking);
-    setShowQuotesModal(true);
-    setQuoteLoading(true);
-    try {
-      const token = localStorage.getItem('adminToken');
-      const res = await fetch(`http://54.174.219.57:5000/api/quotations/for-booking/${booking.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setQuotations(data.quotations || []);
-    } catch (err) {
-      alert('Failed to load quotations');
-      setQuotations([]);
-    } finally {
-      setQuoteLoading(false);
-    }
-  };
-
-  const handleSelectQuote = async (quoteId) => {
-    setQuoteLoading(true);
-    try {
-      const token = localStorage.getItem('adminToken');
-      const res = await fetch(`http://54.174.219.57:5000/api/quotations/${quoteId}/select`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to select quotation');
-      alert('Quotation selected!');
-      setShowQuotesModal(false);
-      setSelectedBooking(null);
-      fetchBookings();
-    } catch (err) {
-      alert('Failed to select quotation');
-    } finally {
-      setQuoteLoading(false);
-    }
-  };
-
   const getStatusBadge = (status) => {
     const statusConfig = {
       pending: { label: 'Pending', className: 'status-pending' },
@@ -169,18 +181,64 @@ const Bookings = () => {
 
   return (
     <div className="bookings-page">
-      {/* Tabs */}
-      <div className="tabs-container">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-            <span className="tab-count">{tab.count}</span>
-          </button>
-        ))}
+      <div className="bookings-filters-panel">
+        <div className="bookings-filters-grid">
+          <div className="filter-field filter-field-wide">
+            <label htmlFor="booking-search">Search</label>
+            <input
+              id="booking-search"
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by user, booking ID, pickup, drop, truck type"
+            />
+          </div>
+
+          <div className="filter-field">
+            <label htmlFor="status-filter">Status</label>
+            <select
+              id="status-filter"
+              value={selectedStatus}
+              onChange={(event) => setSelectedStatus(event.target.value)}
+            >
+              {statusOptions.map((statusOption) => (
+                <option key={statusOption.id} value={statusOption.id}>
+                  {statusOption.label} ({statusOption.count})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-field">
+            <label htmlFor="truck-type-filter">Truck Type</label>
+            <select
+              id="truck-type-filter"
+              value={selectedTruckType}
+              onChange={(event) => setSelectedTruckType(event.target.value)}
+            >
+              <option value="all">All Truck Types</option>
+              {truckTypeOptions.map((truckType) => (
+                <option key={truckType} value={truckType}>
+                  {truckType}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-field">
+            <label htmlFor="assignment-filter">Assignment</label>
+            <select
+              id="assignment-filter"
+              value={assignmentFilter}
+              onChange={(event) => setAssignmentFilter(event.target.value)}
+            >
+              <option value="all">All Bookings</option>
+              <option value="assigned">Assigned</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+          </div>
+        </div>
+
       </div>
 
       {/* Bookings Table */}
@@ -188,9 +246,7 @@ const Bookings = () => {
         <table className="bookings-table">
           <thead>
             <tr>
-              <th>Booking ID</th>
               <th>User</th>
-              <th>Route</th>
               <th>Pickup Date</th>
               <th>Truck Type</th>
               <th>Load Weight</th>
@@ -201,17 +257,9 @@ const Bookings = () => {
             </tr>
           </thead>
           <tbody>
-            {bookings.map((booking) => (
+            {filteredBookings.map((booking) => (
               <tr key={booking.id}>
-                <td className="booking-id">{booking.id}</td>
                 <td>{booking.user}</td>
-                <td>
-                  <div className="route-cell">
-                    <span className="route-from">{booking.fromLocation}</span>
-                    <span className="route-arrow">→</span>
-                    <span className="route-to">{booking.toLocation}</span>
-                  </div>
-                </td>
                 <td>{new Date(booking.pickupDate).toLocaleDateString()}</td>
                 <td>{booking.truckType}</td>
                 <td>{booking.loadWeight}</td>
@@ -228,7 +276,7 @@ const Bookings = () => {
                   <div className="action-buttons">
                     <button 
                       className="action-btn view-btn"
-                      onClick={() => console.log('View booking:', booking)}
+                      onClick={() => onViewBooking?.(booking.id)}
                     >
                       View
                     </button>
@@ -240,12 +288,6 @@ const Bookings = () => {
                         Assign Driver
                       </button>
                     )}
-                    <button 
-                      className="action-btn view-btn"
-                      onClick={() => openQuotesModal(booking)}
-                    >
-                      View Quotations
-                    </button>
                   </div>
                 </td>
               </tr>
@@ -253,7 +295,7 @@ const Bookings = () => {
           </tbody>
         </table>
 
-        {bookings.length === 0 && (
+        {filteredBookings.length === 0 && (
           <div className="no-data">No bookings found for this category</div>
         )}
       </div>
@@ -305,56 +347,6 @@ const Bookings = () => {
         </div>
       )}
 
-      {/* Quotations Modal */}
-      {showQuotesModal && (
-        <div className="modal-overlay" onClick={() => setShowQuotesModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Quotations</h2>
-            <p className="modal-booking-info">
-              Booking: {selectedBooking?.fromLocation} → {selectedBooking?.toLocation}
-            </p>
-            {quoteLoading ? (
-              <div>Loading quotations...</div>
-            ) : quotations.length === 0 ? (
-              <div>No quotations yet.</div>
-            ) : (
-              <table className="quotes-table">
-                <thead>
-                  <tr>
-                    <th>Driver</th>
-                    <th>Price</th>
-                    <th>Notes</th>
-                    <th>Selected</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotations.map(q => (
-                    <tr key={q._id}>
-                      <td>{q.driverId ? `${q.driverId.firstName} ${q.driverId.lastName}` : 'N/A'}</td>
-                      <td>₹{q.price}</td>
-                      <td>{q.notes}</td>
-                      <td>{q.selected ? '✓' : ''}</td>
-                      <td>
-                        {!q.selected && (
-                          <button className="btn btn-confirm" onClick={() => handleSelectQuote(q._id)} disabled={quoteLoading}>
-                            Select
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            <div className="modal-actions">
-              <button className="btn btn-cancel" onClick={() => setShowQuotesModal(false)} disabled={quoteLoading}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

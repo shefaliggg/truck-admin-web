@@ -7,12 +7,12 @@
   margin: 0 0 6px 0;
 }
 .subtitle {
-  color: #666;
+  color: var(--brand-primary);
   margin-bottom: 20px;
 }
 .card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--brand-secondary);
+  border: 1px solid var(--brand-secondary);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 20px;
@@ -20,27 +20,27 @@
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #7b2ff2;
+  color: var(--brand-primary);
   margin-bottom: 12px;
 }
 .label {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--brand-primary);
   margin-bottom: 6px;
   margin-top: 10px;
 }
 .input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--brand-secondary);
   border-radius: 8px;
-  background: #f9f9f9;
+  background: var(--brand-secondary);
 }
 .primary-btn {
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
-  color: #fff;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  color: var(--brand-secondary);
   border: none;
   border-radius: 8px;
   padding: 12px 16px;
@@ -51,3 +51,6 @@
   padding: 60px;
   text-align: center;
 }
+
+
+

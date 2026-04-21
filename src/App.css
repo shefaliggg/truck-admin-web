@@ -5,12 +5,12 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: var(--bg-base);
 }
 
 html {
@@ -19,7 +19,7 @@ html {
 
 .App {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: var(--bg-base);
 }
 
 .loading-page {
@@ -27,9 +27,43 @@ html {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  font-size: 18px;
-  color: #666;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  font-size: 14px;
+  color: var(--text-muted);
+  background: var(--bg-base);
+}
+
+/* Minimal global controls */
+input,
+select,
+textarea {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 10px 12px;
+  min-height: 40px;
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb), 0.15);
+}
+
+button {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--brand-primary-rgb), 0.35);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  color: #fff;
 }
 
 /* Global Button Styles */
@@ -48,26 +82,189 @@ button:active {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--bg-base);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6921d1;
+  background: var(--brand-secondary);
 }
 
 /* Selection Styling */
 ::selection {
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
   color: white;
 }
 
 ::-moz-selection {
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
   color: white;
 }
+
+/* Neutralize module page surfaces while keeping brand accents on actions/badges */
+:is(
+  .dashboard,
+  .bookings-page,
+  .drivers-page,
+  .invoices-page,
+  .pods-page,
+  .ratings-page,
+  .settlements-page,
+  .support-page,
+  .trips-page,
+  .trucks-page,
+  .users-page,
+  .admin-settings-page
+) {
+  background: var(--bg-base) !important;
+}
+
+:is(
+  .stat-card,
+  .pending-section,
+  .tabs-container,
+  .table-container,
+  .trips-header,
+  .bookings-loading,
+  .trips-loading,
+  .loading,
+  .no-data,
+  .users-page .modal,
+  .pods-page .pod-card,
+  .pods-page .modal-content,
+  .ratings-page .stats-card,
+  .ratings-page .breakdown-card,
+  .settlements-page .card,
+  .settlements-page .modal-box,
+  .admin-settings-page .card,
+  .admin-settings-page .input
+) {
+  background: var(--bg-elevated) !important;
+  color: var(--text-strong);
+  border-color: var(--border-soft) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+:is(
+  .pods-page .pod-header,
+  .pods-page .pod-images,
+  .pods-page .pod-actions,
+  .ratings-page .progress-bar,
+  .settlements-page .preview-box,
+  .users-page .modal .user-detail-table,
+  .users-page .modal .user-detail-table td,
+  .admin-settings-page .subtitle
+) {
+  background: rgba(var(--brand-primary-rgb), 0.06) !important;
+  border-color: var(--border-soft) !important;
+  color: var(--text-strong) !important;
+}
+
+:is(
+  .bookings-table,
+  .drivers-table,
+  .invoices-table,
+  .ratings-table,
+  .settlements-table,
+  .support-table,
+  .trips-table,
+  .trucks-table,
+  .users-table
+) thead {
+  background: rgba(var(--brand-primary-rgb), 0.08) !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+}
+
+:is(
+  .bookings-table,
+  .drivers-table,
+  .invoices-table,
+  .ratings-table,
+  .settlements-table,
+  .support-table,
+  .trips-table,
+  .trucks-table,
+  .users-table
+) th {
+  color: var(--text-strong) !important;
+}
+
+:is(
+  .bookings-table,
+  .drivers-table,
+  .invoices-table,
+  .ratings-table,
+  .settlements-table,
+  .support-table,
+  .trips-table,
+  .trucks-table,
+  .users-table
+) td {
+  color: var(--text-strong) !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+}
+
+:is(
+  .bookings-table,
+  .drivers-table,
+  .invoices-table,
+  .ratings-table,
+  .support-table,
+  .trips-table,
+  .trucks-table,
+  .users-table
+) tbody tr:hover {
+  background: rgba(var(--brand-primary-rgb), 0.05) !important;
+  box-shadow: none !important;
+}
+
+:is(
+  .booking-id,
+  .invoice-id,
+  .ticket-id,
+  .trip-id,
+  .truck-id,
+  .user-id,
+  .pod-id,
+  .detail-label,
+  .detail-value,
+  .breakdown-title,
+  .count-label,
+  .card-title,
+  .label,
+  .title,
+  .subtitle,
+  .subject,
+  .vehicle-number,
+  .capacity,
+  .amount,
+  .route-from,
+  .route-to,
+  .driver-name,
+  .truck-number,
+  .total-reviews,
+  .comment-cell,
+  .completed-text,
+  .users-loading,
+  .invoices-loading,
+  .support-loading,
+  .ratings-loading,
+  .pods-loading,
+  .trucks-loading,
+  .bookings-loading,
+  .trips-loading,
+  .loading,
+  .no-data
+) {
+  color: var(--text-strong) !important;
+}
+
+:is(.modal-overlay, .image-modal) {
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+

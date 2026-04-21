@@ -8,7 +8,7 @@
   background: white;
   padding: 25px;
   border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.05);
 }
 
 .card-header {
@@ -29,7 +29,7 @@
 .premium-input {
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--brand-secondary);
   font-size: 14px;
   width: 250px;
 }
@@ -37,7 +37,7 @@
 .preview-box {
   margin-top: 20px;
   padding: 20px;
-  background: #f8fafc;
+  background: var(--brand-secondary);
   border-radius: 12px;
 }
 
@@ -50,7 +50,7 @@
 
 .preview-grid span {
   font-size: 12px;
-  color: #64748b;
+  color: var(--brand-primary);
 }
 
 .preview-grid strong {
@@ -59,12 +59,12 @@
 }
 
 .highlight {
-  color: #1E3A8A;
+  color: var(--brand-secondary);
   font-size: 18px;
 }
 
 .primary-btn {
-  background: #1E3A8A;
+  background: var(--brand-secondary);
   color: white;
   padding: 10px 18px;
   border-radius: 8px;
@@ -73,11 +73,11 @@
 }
 
 .primary-btn:hover {
-  background: #162d6b;
+  background: var(--brand-primary);
 }
 
 .secondary-btn {
-  background: #e2e8f0;
+  background: var(--brand-secondary);
   padding: 10px 18px;
   border-radius: 8px;
   border: none;
@@ -96,20 +96,20 @@
 .settlements-table th,
 .settlements-table td {
   padding: 14px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--brand-secondary);
   font-size: 14px;
 }
 
 .settlements-table th {
-  background: #f8fafc;
+  background: var(--brand-secondary);
   text-transform: uppercase;
   font-size: 12px;
-  color: #64748b;
+  color: var(--brand-primary);
 }
 
 .payout-cell {
   font-weight: 600;
-  color: #1E3A8A;
+  color: var(--brand-secondary);
 }
 
 .status-badge {
@@ -120,18 +120,18 @@
 }
 
 .status-badge.pending {
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .status-badge.approved {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .status-badge.paid {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .approve-btn,
@@ -143,17 +143,17 @@
 }
 
 .approve-btn {
-  background: #16a34a;
+  background: var(--brand-primary);
   color: white;
 }
 
 .pay-btn {
-  background: #1E3A8A;
+  background: var(--brand-secondary);
   color: white;
 }
 
 .completed-text {
-  color: #16a34a;
+  color: var(--brand-primary);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -162,7 +162,7 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.45);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -180,3 +180,7 @@
   justify-content: space-between;
   margin-top: 15px;
 }
+
+
+
+

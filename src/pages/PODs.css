@@ -8,7 +8,7 @@
   justify-content: center;
   height: 400px;
   font-size: 16px;
-  color: #718096;
+  color: var(--brand-primary);
 }
 
 .pods-grid {
@@ -20,34 +20,34 @@
 .pod-card {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.06);
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .pod-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.1);
 }
 
 .pod-header {
   padding: 16px;
-  background: #f7fafc;
+  background: var(--brand-secondary);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--brand-secondary);
 }
 
 .pod-id {
   font-size: 16px;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--brand-primary);
 }
 
 .pod-status-badge {
-  background: #fef5e7;
-  color: #d97706;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
@@ -59,7 +59,7 @@
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
   padding: 16px;
-  background: #fafafa;
+  background: var(--brand-secondary);
 }
 
 .pod-image {
@@ -69,12 +69,12 @@
   border-radius: 8px;
   cursor: pointer;
   transition: transform 0.2s;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--brand-secondary);
 }
 
 .pod-image:hover {
   transform: scale(1.05);
-  border-color: #4299e1;
+  border-color: var(--brand-primary);
 }
 
 .pod-details {
@@ -91,12 +91,12 @@
 }
 
 .detail-label {
-  color: #718096;
+  color: var(--brand-primary);
   font-weight: 500;
 }
 
 .detail-value {
-  color: #2d3748;
+  color: var(--brand-primary);
   font-weight: 600;
   text-align: right;
 }
@@ -105,7 +105,7 @@
   padding: 16px;
   display: flex;
   gap: 10px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--brand-secondary);
 }
 
 .approve-btn,
@@ -121,31 +121,31 @@
 }
 
 .approve-btn {
-  background: #38a169;
+  background: var(--brand-primary);
   color: white;
 }
 
 .approve-btn:hover {
-  background: #2f855a;
+  background: var(--brand-primary);
 }
 
 .reject-btn {
-  background: #e53e3e;
+  background: var(--brand-primary);
   color: white;
 }
 
 .reject-btn:hover {
-  background: #c53030;
+  background: var(--brand-primary);
 }
 
 .no-data {
   background: white;
   padding: 60px;
   text-align: center;
-  color: #a0aec0;
+  color: var(--brand-primary);
   font-size: 16px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.06);
 }
 
 /* Image Modal */
@@ -155,7 +155,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,7 +178,7 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.6);
   color: white;
   border: none;
   width: 36px;
@@ -191,7 +191,7 @@
 }
 
 .modal-close:hover {
-  background: rgba(0,0,0,0.8);
+  background: rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.8);
 }
 
 .modal-image {
@@ -202,16 +202,20 @@
 
 .modal-info {
   padding: 20px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--brand-secondary);
 }
 
 .modal-info h3 {
   margin: 0 0 8px 0;
-  color: #2d3748;
+  color: var(--brand-primary);
 }
 
 .modal-info p {
   margin: 0;
-  color: #718096;
+  color: var(--brand-primary);
   font-size: 14px;
 }
+
+
+
+

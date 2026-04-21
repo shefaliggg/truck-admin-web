@@ -8,13 +8,13 @@
   justify-content: center;
   height: 400px;
   font-size: 16px;
-  color: #718096;
+  color: var(--brand-primary);
 }
 
 .table-container {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(var(--brand-primary-rgb), 0.18), 0.18), 0.18), 0.06);
   overflow: hidden;
 }
 
@@ -24,8 +24,8 @@
 }
 
 .support-table thead {
-  background: #f7fafc;
-  border-bottom: 2px solid #e2e8f0;
+  background: var(--brand-secondary);
+  border-bottom: 2px solid var(--brand-secondary);
 }
 
 .support-table th {
@@ -33,16 +33,16 @@
   text-align: left;
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--brand-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .support-table td {
   padding: 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--brand-secondary);
   font-size: 14px;
-  color: #2d3748;
+  color: var(--brand-primary);
 }
 
 .support-table tbody tr {
@@ -50,12 +50,12 @@
 }
 
 .support-table tbody tr:hover {
-  background: #f7fafc;
+  background: var(--brand-secondary);
 }
 
 .ticket-id {
   font-weight: 600;
-  color: #4299e1;
+  color: var(--brand-primary);
 }
 
 .subject {
@@ -73,38 +73,38 @@
 }
 
 .status-open {
-  background: #fef5e7;
-  color: #d97706;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .status-progress {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .status-resolved {
-  background: #d1fae5;
-  color: #059669;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .status-closed {
-  background: #e2e8f0;
-  color: #4a5568;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .priority-high {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .priority-medium {
-  background: #fef5e7;
-  color: #d97706;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .priority-low {
-  background: #e0e7ff;
-  color: #6366f1;
+  background: var(--brand-secondary);
+  color: var(--brand-primary);
 }
 
 .action-btn {
@@ -118,17 +118,21 @@
 }
 
 .view-btn {
-  background: #4299e1;
+  background: var(--brand-primary);
   color: white;
 }
 
 .view-btn:hover {
-  background: #3182ce;
+  background: var(--brand-primary);
 }
 
 .no-data {
   padding: 40px;
   text-align: center;
-  color: #a0aec0;
+  color: var(--brand-primary);
   font-size: 14px;
 }
+
+
+
+

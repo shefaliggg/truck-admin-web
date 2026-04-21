@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Bookings from './pages/Bookings';
+import BookingDetails from './pages/BookingDetails';
+import NewBooking from './pages/NewBooking';
 import Trips from './pages/Trips';
+import TripDetails from './pages/TripDetails';
 import Users from './pages/Users';
 import Drivers from './pages/Drivers';
 import Trucks from './pages/Trucks';
@@ -20,6 +23,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedTripId, setSelectedTripId] = useState(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -47,14 +52,69 @@ function App() {
     setUser(null);
   };
 
+  const handleOpenBookingDetails = (bookingId) => {
+    setSelectedBookingId(bookingId);
+    setCurrentPage('booking-details');
+  };
+
+  const handleBackToBookings = () => {
+    setCurrentPage('bookings');
+  };
+
+  const handleOpenTripDetails = (tripId) => {
+    setSelectedTripId(tripId);
+    setCurrentPage('trip-details');
+  };
+
+  const handleBackToTrips = () => {
+    setCurrentPage('trips');
+  };
+
+  const handleOpenNewBooking = () => {
+    setCurrentPage('new-booking');
+  };
+
+  const handleBookingCreated = () => {
+    setCurrentPage('bookings');
+  };
+
+  const pageTitle = currentPage === 'booking-details'
+    ? 'Booking Details'
+    : currentPage === 'new-booking'
+      ? 'Add Booking'
+      : currentPage === 'trip-details'
+        ? 'Trip Details'
+      : undefined;
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
       case 'bookings':
-        return <Bookings />;
+        return <Bookings onViewBooking={handleOpenBookingDetails} />;
+      case 'booking-details':
+        return (
+          <BookingDetails
+            bookingId={selectedBookingId}
+            onBack={handleBackToBookings}
+          />
+        );
+      case 'new-booking':
+        return (
+          <NewBooking
+            onSuccess={handleBookingCreated}
+            onCancel={handleBackToBookings}
+          />
+        );
       case 'trips':
-        return <Trips />;
+        return <Trips onViewTrip={handleOpenTripDetails} />;
+      case 'trip-details':
+        return (
+          <TripDetails
+            tripId={selectedTripId}
+            onBack={handleBackToTrips}
+          />
+        );
       case 'users':
         return <Users />;
       case 'drivers':
@@ -94,6 +154,9 @@ function App() {
           onLogout={handleLogout}
           currentPage={currentPage}
           onNavigate={setCurrentPage}
+          pageTitle={pageTitle}
+          onAddBooking={handleOpenNewBooking}
+          showAddBookingButton={currentPage === 'bookings' || currentPage === 'booking-details'}
         >
           {renderPage()}
         </Layout>

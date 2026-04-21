@@ -1,52 +1,58 @@
 .trips-page {
   width: 100%;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 32px 24px;
-}
-
-.trips-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
-  background: white;
-  padding: 28px 32px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.trips-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0;
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-primary) 100%);
+  padding: 20px 8px;
 }
 
 .refresh-btn {
-  padding: 12px 28px;
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
+  padding: 9px 14px;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
   color: white;
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(123, 47, 242, 0.3);
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.refresh-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(123, 47, 242, 0.4);
+.trips-filters-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-soft);
 }
 
-.refresh-btn:active {
-  transform: translateY(0);
+.trips-filters-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(140px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.trip-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-filter-field-wide {
+  min-width: 0;
+}
+
+.trip-filter-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trip-refresh-wrap {
+  align-items: flex-start;
+  justify-content: flex-end;
 }
 
 .trips-loading {
@@ -55,28 +61,29 @@
   justify-content: center;
   height: 400px;
   font-size: 16px;
-  color: #718096;
+  color: var(--brand-primary);
   background: white;
   border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 .table-container {
   background: white;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  overflow-x: auto;
+  border: 1px solid var(--brand-secondary);
 }
 
 .trips-table {
   width: 100%;
+  min-width: 1060px;
   border-collapse: collapse;
 }
 
 .trips-table thead {
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-  border-bottom: 2px solid #e2e8f0;
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary) 100%);
+  border-bottom: 2px solid var(--brand-secondary);
 }
 
 .trips-table th {
@@ -84,16 +91,16 @@
   text-align: left;
   font-size: 12px;
   font-weight: 700;
-  color: #4a5568;
+  color: var(--brand-primary);
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
 
 .trips-table td {
   padding: 18px 16px;
-  border-bottom: 1px solid #edf2f7;
+  border-bottom: 1px solid var(--brand-secondary);
   font-size: 14px;
-  color: #2d3748;
+  color: var(--brand-primary);
 }
 
 .trips-table tbody tr {
@@ -101,13 +108,12 @@
 }
 
 .trips-table tbody tr:hover {
-  background: #f7fafc;
-  box-shadow: inset 0 0 10px rgba(123, 47, 242, 0.05);
+  background: var(--brand-secondary);
 }
 
 .trip-id {
   font-weight: 700;
-  color: #7b2ff2;
+  color: var(--brand-primary);
   font-size: 15px;
 }
 
@@ -119,15 +125,15 @@
 
 .driver-name {
   font-weight: 600;
-  color: #1a202c;
+  color: var(--brand-primary);
   font-size: 15px;
 }
 
 .truck-number {
   font-size: 12px;
-  color: #718096;
+  color: var(--brand-primary);
   font-family: monospace;
-  background: #f7fafc;
+  background: var(--brand-secondary);
   padding: 4px 8px;
   border-radius: 4px;
   display: inline-block;
@@ -143,18 +149,16 @@
 .route-from,
 .route-to {
   font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: block;
 }
 
 .route-from {
-  color: #2d3748;
+  color: var(--brand-primary);
   font-weight: 500;
 }
 
 .route-to {
-  color: #718096;
+  color: var(--brand-primary);
   font-weight: 500;
 }
 
@@ -170,116 +174,108 @@
 }
 
 .status-assigned {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  color: #92400e;
-  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.2);
+  background: rgba(var(--brand-secondary-rgb), 0.28);
+  border: 1px solid rgba(var(--brand-secondary-rgb), 0.55);
+  color: var(--text-strong);
 }
 
 .status-accepted {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #0c4a6e;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2);
+  background: rgba(var(--brand-secondary-rgb), 0.22);
+  border: 1px solid rgba(var(--brand-secondary-rgb), 0.48);
+  color: var(--text-strong);
 }
 
 .status-enroute {
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  color: #3730a3;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+  background: rgba(var(--brand-primary-rgb), 0.18);
+  border: 1px solid rgba(var(--brand-primary-rgb), 0.45);
+  color: var(--text-strong);
 }
 
 .status-loading {
-  background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%);
-  color: #78350f;
-  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.2);
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-primary) 100%);
+  color: #ffffff;
 }
 
 .status-transit {
-  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-  color: #4c0519;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-primary) 100%);
+  color: #ffffff;
 }
 
 .status-arrived {
-  background: linear-gradient(135deg, #a5f3fc 0%, #67e8f9 100%);
-  color: #164e63;
-  box-shadow: 0 2px 8px rgba(8, 145, 178, 0.2);
+  background: rgba(var(--brand-secondary-rgb), 0.26);
+  border: 1px solid rgba(var(--brand-secondary-rgb), 0.52);
+  color: var(--text-strong);
 }
 
 .status-delivered {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-  color: #166534;
-  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary) 100%);
+  color: var(--text-strong);
 }
 
 .status-rejected {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-  color: #7f1d1d;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+  background: rgba(var(--brand-primary-rgb), 0.2);
+  color: var(--text-strong);
 }
 
 .status-default {
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  color: #4b5563;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.route-arrow {
-  color: #cbd5e0;
-  font-size: 16px;
-  margin: 0 4px;
-}
-
-.location-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.location-icon {
-  font-size: 16px;
-}
-
-.distance-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.eta {
-  font-size: 12px;
-  color: #718096;
-  font-weight: 500;
+  background: rgba(var(--brand-secondary-rgb), 0.2);
+  color: var(--text-strong);
 }
 
 .action-btn {
-  padding: 8px 16px;
-  border: none;
+  border: 1px solid var(--border-soft);
+  background: white;
+  color: var(--text-strong);
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.view-btn {
-  background: linear-gradient(135deg, #7b2ff2 0%, #5a1fa3 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(123, 47, 242, 0.3);
 }
 
 .view-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(123, 47, 242, 0.4);
+  background: rgba(var(--brand-secondary-rgb), 0.2);
 }
 
 .no-data {
   padding: 60px 40px;
   text-align: center;
-  color: #a0aec0;
+  color: var(--brand-primary);
   font-size: 16px;
   background: white;
   border-radius: 16px;
-  margin: 0 24px;
+  margin: 0 16px;
 }
+
+@media (max-width: 1200px) {
+  .trips-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trip-filter-field-wide {
+    grid-column: span 2;
+  }
+
+  .trip-refresh-wrap {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 768px) {
+  .trips-page {
+    padding: 16px 0;
+  }
+
+  .trips-filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-filter-field-wide {
+    grid-column: span 1;
+  }
+}
+
+
+
+
+
