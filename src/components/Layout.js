@@ -18,7 +18,22 @@ import {
 import { FaToiletPaper, FaTruckMoving } from 'react-icons/fa';
 import './Layout.css';
 
-const Layout = ({ children, user, onLogout, currentPage, onNavigate, pageTitle, onAddBooking, showAddBookingButton }) => {
+const Layout = ({
+  children,
+  user,
+  onLogout,
+  currentPage,
+  onNavigate,
+  pageTitle,
+  onAddBooking,
+  showAddBookingButton,
+  onAddShipper,
+  showAddShipperButton,
+  onAddDriver,
+  showAddDriverButton,
+  onAddTruck,
+  showAddTruckButton,
+}) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const menuItems = [
@@ -91,6 +106,24 @@ const Layout = ({ children, user, onLogout, currentPage, onNavigate, pageTitle, 
             <button className="header-add-booking-btn" onClick={onAddBooking}>
               <FiPlus />
               <span>Add Booking</span>
+            </button>
+          )}
+          {showAddShipperButton && (
+            <button className="header-add-shipper-btn" onClick={onAddShipper}>
+              <FiPlus />
+              <span>Add Shipper</span>
+            </button>
+          )}
+          {showAddDriverButton && (
+            <button className="header-add-driver-btn" onClick={onAddDriver}>
+              <FiPlus />
+              <span>Add Driver</span>
+            </button>
+          )}
+          {showAddTruckButton && (
+            <button className="header-add-truck-btn" onClick={onAddTruck}>
+              <FiPlus />
+              <span>Add Truck</span>
             </button>
           )}
         </header>

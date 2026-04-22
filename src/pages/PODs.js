@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './PODs.css';
-import api from '../services/api';
+import api, { API_ORIGIN } from '../services/api';
 
 const PODs = () => {
   console.log("PODs component rendered");
@@ -79,7 +79,7 @@ console.error('Failed to fetch PODs:', err.response?.data || err.message);
               {pod.images.map((img, idx) => (
                 <img 
                   key={idx} 
-                  src={`http://54.174.219.57:5000/${img}`} 
+                  src={`${API_ORIGIN}/${img}`} 
                   alt={`POD ${idx + 1}`} 
                   className="pod-image"
                   onClick={() => setSelectedPod({ ...pod, selectedImage: img })}

@@ -1,3 +1,84 @@
+.users-page {
+  width: 100%;
+}
+
+.users-filters-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-soft);
+}
+
+.users-filters-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.8fr) minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.user-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-filter-field-wide {
+  min-width: 0;
+}
+
+.user-filter-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.user-filter-field input,
+.user-filter-field select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-strong);
+  background: white;
+  outline: none;
+}
+
+.user-refresh-wrap {
+  justify-content: flex-end;
+}
+
+.users-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.users-table th.sortable:hover {
+  background: rgba(var(--brand-secondary-rgb), 0.25);
+}
+
+@media (max-width: 900px) {
+  .users-filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .user-filter-field-wide {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .users-filters-grid {
+    grid-template-columns: 1fr;
+  }
+  .user-filter-field-wide {
+    grid-column: span 1;
+  }
+}
+
 /* Modal overlay and modal styles */
 .modal-overlay {
   position: fixed;

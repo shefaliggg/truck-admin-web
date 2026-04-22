@@ -1,5 +1,35 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './TripDetails.css';
+import { API_BASE_URL } from '../services/api';
+
+const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+
+const loadGoogleMapsScript = () => {
+  return new Promise((resolve, reject) => {
+    if (window.google && window.google.maps) {
+      resolve();
+      return;
+    }
+    if (!GOOGLE_MAPS_KEY) {
+      reject(new Error('Google Maps API key is not configured'));
+      return;
+    }
+    const existing = document.querySelector('script[data-gm-trip]');
+    if (existing) {
+      existing.addEventListener('load', resolve);
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=maps`;
+    script.async = true;
+    script.defer = true;
+    script.setAttribute('data-gm-trip', '1');
+    script.addEventListener('load', resolve);
+    script.addEventListener('error', () => reject(new Error('Failed to load Google Maps')));
+    document.head.appendChild(script);
+  });
+};
 
 const formatDate = (value) => {
   if (!value) {
@@ -43,6 +73,9 @@ const TripDetails = ({ tripId, onBack }) => {
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [mapError, setMapError] = useState('');
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   const fetchTripDetails = useCallback(async () => {
     if (!tripId) {
@@ -55,7 +88,7 @@ const TripDetails = ({ tripId, onBack }) => {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://54.174.219.57:5000/api/trips/${tripId}/track`, {
+      const response = await fetch(`${API_BASE_URL}/trips/${tripId}/track`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -77,6 +110,122 @@ const TripDetails = ({ tripId, onBack }) => {
   useEffect(() => {
     fetchTripDetails();
   }, [fetchTripDetails]);
+
+  // Initialise map once we have trip data and the container is mounted
+  useEffect(() => {
+    if (!trip || !mapContainerRef.current) {
+      return;
+    }
+
+    const pickupLat = trip.booking?.pickupLocation?.lat;
+    const pickupLng = trip.booking?.pickupLocation?.lng;
+    const dropLat = trip.booking?.dropLocation?.lat;
+    const dropLng = trip.booking?.dropLocation?.lng;
+
+    const hasPickup = pickupLat != null && pickupLng != null;
+    const hasDrop = dropLat != null && dropLng != null;
+
+    if (!hasPickup && !hasDrop) {
+      setMapError('Location coordinates are not available for this trip.');
+      return;
+    }
+
+    loadGoogleMapsScript()
+      .then(() => {
+        const google = window.google;
+        const container = mapContainerRef.current;
+
+        const centerLat = hasPickup ? pickupLat : dropLat;
+        const centerLng = hasPickup ? pickupLng : dropLng;
+
+        const mapInstance = new google.maps.Map(container, {
+          center: { lat: Number(centerLat), lng: Number(centerLng) },
+          zoom: 10,
+          mapTypeControl: false,
+          fullscreenControl: false,
+          streetViewControl: false,
+        });
+        mapInstanceRef.current = mapInstance;
+
+        // Pickup marker
+        if (hasPickup) {
+          new google.maps.Marker({
+            position: { lat: Number(pickupLat), lng: Number(pickupLng) },
+            map: mapInstance,
+            title: 'Pickup: ' + (trip.booking?.pickup || ''),
+            icon: {
+              url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+              scaledSize: new google.maps.Size(40, 40),
+            },
+            label: { text: 'P', color: '#fff', fontWeight: 'bold', fontSize: '12px' },
+          });
+        }
+
+        // Drop marker
+        if (hasDrop) {
+          new google.maps.Marker({
+            position: { lat: Number(dropLat), lng: Number(dropLng) },
+            map: mapInstance,
+            title: 'Drop: ' + (trip.booking?.drop || ''),
+            icon: {
+              url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+              scaledSize: new google.maps.Size(40, 40),
+            },
+            label: { text: 'D', color: '#fff', fontWeight: 'bold', fontSize: '12px' },
+          });
+        }
+
+        // Driver current location marker
+        const curLat = trip.currentLocation?.latitude;
+        const curLng = trip.currentLocation?.longitude;
+        if (curLat != null && curLng != null) {
+          new google.maps.Marker({
+            position: { lat: Number(curLat), lng: Number(curLng) },
+            map: mapInstance,
+            title: 'Driver current location',
+            icon: {
+              url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+              scaledSize: new google.maps.Size(44, 44),
+            },
+          });
+        }
+
+        // Directions route between pickup and drop
+        if (hasPickup && hasDrop) {
+          const directionsService = new google.maps.DirectionsService();
+          const directionsRenderer = new google.maps.DirectionsRenderer({
+            map: mapInstance,
+            suppressMarkers: true,
+            polylineOptions: {
+              strokeColor: '#2FA084',
+              strokeWeight: 5,
+              strokeOpacity: 0.85,
+            },
+          });
+
+          directionsService.route(
+            {
+              origin: { lat: Number(pickupLat), lng: Number(pickupLng) },
+              destination: { lat: Number(dropLat), lng: Number(dropLng) },
+              travelMode: google.maps.TravelMode.DRIVING,
+            },
+            (result, status) => {
+              if (status === google.maps.DirectionsStatus.OK) {
+                directionsRenderer.setDirections(result);
+              }
+              // silently ignore – straight-line markers already visible
+            }
+          );
+        }
+      })
+      .catch((err) => {
+        setMapError(err.message || 'Unable to load map.');
+      });
+
+    return () => {
+      mapInstanceRef.current = null;
+    };
+  }, [trip]);
 
   const timeline = useMemo(() => trip?.timeline || [], [trip]);
 
@@ -111,7 +260,23 @@ const TripDetails = ({ tripId, onBack }) => {
           <div className="trip-status-chip">{formatStatus(trip?.status)}</div>
         </section>
 
-        <section className="trip-details-card">
+        <section className="trip-details-card trip-card-map">
+          <div className="trip-map-header">
+            <h3>Route Map</h3>
+            <div className="trip-map-legend">
+              <span className="trip-legend-item trip-legend-pickup">Pickup</span>
+              <span className="trip-legend-item trip-legend-drop">Drop</span>
+              <span className="trip-legend-item trip-legend-driver">Driver</span>
+            </div>
+          </div>
+          {mapError ? (
+            <div className="trip-map-unavailable">{mapError}</div>
+          ) : (
+            <div ref={mapContainerRef} className="trip-map-canvas" />
+          )}
+        </section>
+
+        <section className="trip-details-card trip-card-timeline">
           <h3>Timeline</h3>
           {timeline.length === 0 ? (
             <p className="trip-empty-text">Timeline is not available for this trip yet.</p>
@@ -130,7 +295,7 @@ const TripDetails = ({ tripId, onBack }) => {
           )}
         </section>
 
-        <section className="trip-details-card">
+        <section className="trip-details-card trip-card-driver">
           <h3>Driver</h3>
           <div className="trip-info-grid">
             <div>
@@ -152,7 +317,7 @@ const TripDetails = ({ tripId, onBack }) => {
           </div>
         </section>
 
-        <section className="trip-details-card">
+        <section className="trip-details-card trip-card-route">
           <h3>Route</h3>
           <div className="trip-address-stack">
             <div>
@@ -185,7 +350,7 @@ const TripDetails = ({ tripId, onBack }) => {
           </div>
         </section>
 
-        <section className="trip-details-card">
+        <section className="trip-details-card trip-card-summary">
           <h3>Trip Summary</h3>
           <div className="trip-info-grid">
             <div>

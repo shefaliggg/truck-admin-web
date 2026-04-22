@@ -1,0 +1,256 @@
+.sd-page {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg-base);
+  padding: 20px 8px;
+}
+
+.sd-toolbar {
+  margin-bottom: 12px;
+}
+
+.sd-back-btn {
+  background: white;
+  color: var(--text-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.sd-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sd-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  padding: 20px;
+}
+
+/* Hero */
+.sd-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.sd-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  color: white;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+
+.sd-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sd-hero-info h2 {
+  margin: 4px 0 6px;
+  font-size: 22px;
+  color: var(--text-strong);
+}
+
+.sd-hero-info p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Stats row */
+.sd-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.sd-stat {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 16px;
+  border-right: 1px solid var(--border-soft);
+}
+
+.sd-stat:last-child {
+  border-right: none;
+}
+
+.sd-stat span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sd-stat strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+/* Bookings card */
+.sd-bookings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.sd-bookings-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-strong);
+}
+
+.sd-bookings-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.sd-search-input,
+.sd-status-select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-strong);
+  background: white;
+  outline: none;
+}
+
+.sd-search-input {
+  min-width: 200px;
+}
+
+.sd-table-wrap {
+  overflow-x: auto;
+}
+
+.sd-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+.sd-table thead {
+  background: rgba(var(--brand-secondary-rgb), 0.15);
+}
+
+.sd-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-strong);
+  border-bottom: 2px solid var(--border-soft);
+}
+
+.sd-table td {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-strong);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sd-table tbody tr:hover {
+  background: rgba(var(--brand-secondary-rgb), 0.08);
+}
+
+.sd-booking-id {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.sd-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sd-status-pending {
+  background: rgba(var(--brand-secondary-rgb), 0.2);
+  color: var(--text-strong);
+}
+
+.sd-status-confirmed {
+  background: rgba(var(--brand-primary-rgb), 0.14);
+  color: var(--text-strong);
+}
+
+.sd-status-inprogress {
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-primary) 100%);
+  color: white;
+}
+
+.sd-status-completed {
+  background: rgba(var(--brand-secondary-rgb), 0.3);
+  color: var(--text-strong);
+}
+
+.sd-status-cancelled {
+  background: rgba(var(--brand-primary-rgb), 0.18);
+  color: var(--text-strong);
+}
+
+.sd-status-default {
+  background: rgba(var(--brand-secondary-rgb), 0.15);
+  color: var(--text-strong);
+}
+
+.sd-action-btn {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--text-strong);
+}
+
+.sd-action-btn:hover {
+  background: rgba(var(--brand-secondary-rgb), 0.18);
+}
+
+.sd-loading,
+.sd-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}

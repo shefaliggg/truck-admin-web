@@ -1,13 +1,22 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Toaster, toast } from 'sonner';
 import * as driverService from '../services/driver';
 import getErrorMessage from '../utils/errorHandler';
 import './Drivers.css';
 import { verifyDriverBank } from '../services/driver';
-const API_BASE_URL = 'http://54.174.219.57:5000';
 
 // Table component for reuse (must be outside main component)
-function DriverTable({ drivers, actionLoading, handleViewDocuments, handleApprove, handleReject, getStatusBadge,onBankVerified }) {
+function DriverTable({
+  drivers,
+  actionLoading,
+  onViewDriver,
+  handleApprove,
+  handleReject,
+  getStatusBadge,
+  onBankVerified,
+  onSort,
+  sortIcon,
+}) {
   if (!drivers || drivers.length === 0) return <div className="no-data">No drivers found</div>;
   const handleVerifyBank = async (driverId) => {
     try {
@@ -33,14 +42,12 @@ function DriverTable({ drivers, actionLoading, handleViewDocuments, handleApprov
       <table className="drivers-table">
         <thead>
           <tr>
-            <th>Driver Name</th>
+            <th className="sortable" onClick={() => onSort && onSort('name')}>Driver Name{sortIcon ? sortIcon('name') : ''}</th>
             <th>Email</th>
             <th>Phone</th>
-            <th>Vehicle Details</th>
-            <th>Documents</th>
             <th>Status</th>
             <th>Bank Verification</th>
-            <th>Registered</th>
+            <th className="sortable" onClick={() => onSort && onSort('registered')}>Registered{sortIcon ? sortIcon('registered') : ''}</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -52,21 +59,6 @@ function DriverTable({ drivers, actionLoading, handleViewDocuments, handleApprov
               </td>
               <td>{driver.userId?.email}</td>
               <td>{driver.userId?.phone}</td>
-              <td>
-                <div className="vehicle-info">
-                  <div>{driver.vehicleNumber || 'N/A'}</div>
-                  <div className="vehicle-detail">
-                    {driver.vehicleType} - {driver.vehicleCapacity}
-                  </div>
-                </div>
-              </td>
-              <td>
-                {driver.licenseImageUrl && driver.rcImageUrl ? (
-                  <span className="docs-status uploaded">✓ Uploaded</span>
-                ) : (
-                  <span className="docs-status missing">✗ Missing</span>
-                )}
-              </td>
               <td>{getStatusBadge(driver.approvalStatus)}</td>
               <td>
                 {driver.bankDetails?.isVerified ? (
@@ -85,7 +77,7 @@ function DriverTable({ drivers, actionLoading, handleViewDocuments, handleApprov
                 <div className="action-buttons">
                   <button
                     className="action-btn view-btn"
-                    onClick={() => handleViewDocuments(driver)}
+                    onClick={() => onViewDriver && onViewDriver(driver)}
                   >
                     View
                   </button>
@@ -117,46 +109,33 @@ function DriverTable({ drivers, actionLoading, handleViewDocuments, handleApprov
   );
 }
 
-const Drivers = () => {
+const Drivers = ({ onViewDriver }) => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('pending');
-  const [selectedDriver, setSelectedDriver] = useState(null);
-  const [showDocModal, setShowDocModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
 
   const fetchDrivers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      let pending = [], approved = [], rejected = [];
-      if (activeTab === 'all') {
-        pending = await driverService.getPendingDrivers();
-        approved = await driverService.getApprovedDrivers();
-        rejected = await driverService.getRejectedDrivers();
-        setDrivers({ pending, approved, rejected });
-      } else if (activeTab === 'pending') {
-        pending = await driverService.getPendingDrivers();
-        setDrivers({ pending });
-      } else if (activeTab === 'approved') {
-        approved = await driverService.getApprovedDrivers();
-        setDrivers({ approved });
-      } else if (activeTab === 'rejected') {
-        rejected = await driverService.getRejectedDrivers();
-        setDrivers({ rejected });
-      } else {
-        setDrivers({});
-      }
+      const pending = await driverService.getPendingDrivers();
+      const approved = await driverService.getApprovedDrivers();
+      const rejected = await driverService.getRejectedDrivers();
+      setDrivers({ pending, approved, rejected });
     } catch (err) {
       const friendlyError = getErrorMessage(err);
       setError(friendlyError);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     fetchDrivers();
@@ -165,11 +144,6 @@ const Drivers = () => {
   const handleApprove = async (driverId) => {
     setConfirmAction({ type: 'approve', driverId });
     setShowConfirmModal(true);
-  };
-
-  const handleViewDocuments = (driver) => {
-    setSelectedDriver(driver);
-    setShowDocModal(true);
   };
 
   const handleReject = async (driverId) => {
@@ -184,7 +158,6 @@ const Drivers = () => {
     try {
       if (confirmAction.type === 'approve') {
         await driverService.approveDriver(confirmAction.driverId);
-        setShowDocModal(false);
         fetchDrivers();
         toast.success('Driver Approved!', {
           description: 'The driver can now start accepting bookings.',
@@ -193,7 +166,6 @@ const Drivers = () => {
         });
       } else if (confirmAction.type === 'reject') {
         await driverService.rejectDriver(confirmAction.driverId);
-        setShowDocModal(false);
         fetchDrivers();
         toast.error('Driver Rejected', {
           description: 'The driver has been rejected and will be notified.',
@@ -239,50 +211,116 @@ const Drivers = () => {
     return <span className={`status-badge ${config.className}`}>{config.label}</span>;
   };
 
-  const tabs = [
-    { id: 'all', label: 'All Drivers' },
-    { id: 'pending', label: 'Pending' },
-    { id: 'approved', label: 'Approved' },
-    { id: 'rejected', label: 'Rejected' },
-  ];
+  const currentDrivers = useMemo(() => {
+    return [
+      ...(drivers.pending || []),
+      ...(drivers.approved || []),
+      ...(drivers.rejected || []),
+    ];
+  }, [drivers]);
+
+  const filteredDrivers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+
+    const filtered = currentDrivers.filter((driver) => {
+      if (statusFilter !== 'all' && driver.approvalStatus !== statusFilter) return false;
+
+      if (!q) return true;
+
+      const fullName = `${driver.userId?.firstName || ''} ${driver.userId?.lastName || ''}`.toLowerCase();
+      const email = (driver.userId?.email || '').toLowerCase();
+      const phone = (driver.userId?.phone || '').toLowerCase();
+
+      return (
+        fullName.includes(q) ||
+        email.includes(q) ||
+        phone.includes(q)
+      );
+    });
+
+    return [...filtered].sort((a, b) => {
+      let valA;
+      let valB;
+
+      if (sortField === 'registered') {
+        valA = new Date(a.createdAt).getTime();
+        valB = new Date(b.createdAt).getTime();
+      } else {
+        valA = `${a.userId?.firstName || ''} ${a.userId?.lastName || ''}`.toLowerCase();
+        valB = `${b.userId?.firstName || ''} ${b.userId?.lastName || ''}`.toLowerCase();
+      }
+
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [currentDrivers, searchTerm, sortDir, sortField, statusFilter]);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortDir((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortField(field);
+    setSortDir('asc');
+  };
+
+  const sortIcon = (field) => {
+    if (sortField !== field) return ' ↕';
+    return sortDir === 'asc' ? ' ↑' : ' ↓';
+  };
 
   return (
     <div className="drivers-page">
       <Toaster position="top-right" richColors />
-      {/* Tabs */}
-      <div className="tabs-container">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+
+      <div className="drivers-filters-panel">
+        <div className="drivers-filters-grid">
+          <div className="driver-filter-field driver-filter-field-wide">
+            <label htmlFor="driver-search">Search</label>
+            <input
+              id="driver-search"
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Name, email, phone"
+            />
+          </div>
+          <div className="driver-filter-field">
+            <label htmlFor="driver-status">Status</label>
+            <select
+              id="driver-status"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div className="driver-filter-field driver-refresh-wrap">
+            <button type="button" className="refresh-btn" onClick={fetchDrivers}>Refresh</button>
+          </div>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       {loading ? (
         <div className="loading">Loading drivers...</div>
-      ) : activeTab === 'all' ? (
-        <>
-          <h3>Pending Drivers</h3>
-          <DriverTable drivers={drivers.pending || []} onBankVerified={fetchDrivers} actionLoading={actionLoading} handleViewDocuments={handleViewDocuments} handleApprove={handleApprove} handleReject={handleReject} getStatusBadge={getStatusBadge} />
-          <h3>Approved Drivers</h3>
-          <DriverTable drivers={drivers.approved || []} actionLoading={actionLoading} handleViewDocuments={handleViewDocuments} getStatusBadge={getStatusBadge} />
-          <h3>Rejected Drivers</h3>
-          <DriverTable drivers={drivers.rejected || []} actionLoading={actionLoading} handleViewDocuments={handleViewDocuments} getStatusBadge={getStatusBadge} />
-        </>
-      ) : activeTab === 'pending' ? (
-        <DriverTable drivers={drivers.pending || []} actionLoading={actionLoading} handleViewDocuments={handleViewDocuments} handleApprove={handleApprove} handleReject={handleReject} getStatusBadge={getStatusBadge} />
-      ) : activeTab === 'approved' ? (
-        <DriverTable drivers={drivers.approved || []} actionLoading={actionLoading} handleViewDocuments={handleViewDocuments} getStatusBadge={getStatusBadge} />
-      ) : activeTab === 'rejected' ? (
-        <DriverTable drivers={drivers.rejected || []} actionLoading={actionLoading} handleViewDocuments={handleViewDocuments} getStatusBadge={getStatusBadge} />
       ) : (
-        <div className="no-data">No drivers found</div>
+        <DriverTable
+          drivers={filteredDrivers}
+          onBankVerified={fetchDrivers}
+          actionLoading={actionLoading}
+          onViewDriver={onViewDriver}
+          handleApprove={handleApprove}
+          handleReject={handleReject}
+          getStatusBadge={getStatusBadge}
+          onSort={toggleSort}
+          sortIcon={sortIcon}
+        />
       )}
 
 
@@ -322,99 +360,6 @@ const Drivers = () => {
         </div>
       )}
 
-      {/* Document Viewer Modal */}
-      {showDocModal && selectedDriver && (
-        <div className="modal-overlay" onClick={() => setShowDocModal(false)}>
-          <div className="modal-content doc-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Driver Documents - {selectedDriver.userId?.firstName} {selectedDriver.userId?.lastName}</h2>
-              <button className="close-btn" onClick={() => setShowDocModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="driver-details">
-                <div className="detail-row">
-                  <strong>License Number:</strong> {selectedDriver.licenseNumber || 'N/A'}
-                </div>
-                <div className="detail-row">
-                  <strong>License Expiry:</strong> {selectedDriver.licenseExpiry ? new Date(selectedDriver.licenseExpiry).toLocaleDateString() : 'N/A'}
-                </div>
-                <div className="detail-row">
-                  <strong>Vehicle Number:</strong> {selectedDriver.vehicleNumber || 'N/A'}
-                </div>
-                <div className="detail-row">
-                  <strong>Vehicle Type:</strong> {selectedDriver.vehicleType || 'N/A'}
-                </div>
-                <div className="detail-row">
-                  <strong>Vehicle Capacity:</strong> {selectedDriver.vehicleCapacity || 'N/A'}
-                </div>
-              </div>
-
-              <div className="documents-grid">
-                <div className="document-item">
-                  <h3>License Document</h3>
-                  {selectedDriver.licenseImageUrl ? (
-                    <img
-                      src={`${API_BASE_URL}/${selectedDriver.licenseImageUrl}`}
-                      alt="License"
-                      className="document-image"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                  ) : null}
-                  {!selectedDriver.licenseImageUrl && (
-                    <div className="no-document">No license document uploaded</div>
-                  )}
-                  <div className="image-error" style={{ display: 'none' }}>Failed to load image</div>
-                </div>
-
-                <div className="document-item">
-                  <h3>RC Document</h3>
-                  {selectedDriver.rcImageUrl ? (
-                    <img
-                      src={`${API_BASE_URL}/${selectedDriver.rcImageUrl}`}
-                      alt="RC"
-                      className="document-image"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                  ) : null}
-                  {!selectedDriver.rcImageUrl && (
-                    <div className="no-document">No RC document uploaded</div>
-                  )}
-                  <div className="image-error" style={{ display: 'none' }}>Failed to load image</div>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              {selectedDriver.approvalStatus === 'pending' && (
-                <>
-                  <button
-                    className="modal-btn approve-modal-btn"
-                    onClick={() => handleApprove(selectedDriver._id)}
-                    disabled={actionLoading === selectedDriver._id}
-                  >
-                    ✓ Approve Driver
-                  </button>
-                  <button
-                    className="modal-btn reject-modal-btn"
-                    onClick={() => handleReject(selectedDriver._id)}
-                    disabled={actionLoading === selectedDriver._id}
-                  >
-                    ✗ Reject Driver
-                  </button>
-                </>
-              )}
-              <button className="modal-btn close-modal-btn" onClick={() => setShowDocModal(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

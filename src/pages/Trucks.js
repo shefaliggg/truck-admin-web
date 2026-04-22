@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 import './Trucks.css';
 
-const Trucks = () => {
+const Trucks = ({ onViewTruck }) => {
   const [trucks, setTrucks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,39 +13,23 @@ const Trucks = () => {
   const fetchTrucks = async () => {
     try {
       setLoading(true);
-      // Mock data - replace with GET /api/trucks
-      const mockTrucks = [
-        {
-          id: 'TRK-7001',
-          vehicleNumber: 'MH-01-AB-1234',
-          driver: 'John Doe',
-          vehicleType: '20 Ton Truck',
-          capacity: '20000 kg',
-          status: 'available',
-          lastService: '2026-01-05',
-        },
-        {
-          id: 'TRK-7002',
-          vehicleNumber: 'MH-02-CD-5678',
-          driver: 'Sarah Smith',
-          vehicleType: '15 Ton Truck',
-          capacity: '15000 kg',
-          status: 'on_trip',
-          lastService: '2025-12-20',
-        },
-        {
-          id: 'TRK-7003',
-          vehicleNumber: 'KA-03-EF-9012',
-          driver: 'Mike Johnson',
-          vehicleType: '25 Ton Truck',
-          capacity: '25000 kg',
-          status: 'maintenance',
-          lastService: '2026-01-08',
-        },
-      ];
-      setTrucks(mockTrucks);
+      const response = await api.get('/admin/trucks');
+      const mapped = (response.data?.trucks || []).map((truck) => ({
+        id: truck._id,
+        displayId: `TRK-${truck._id.slice(-4).toUpperCase()}`,
+        vehicleNumber: truck.registrationNumber,
+        driver: truck.driverId?.userId
+          ? `${truck.driverId.userId.firstName} ${truck.driverId.userId.lastName}`
+          : 'Unassigned',
+        vehicleType: truck.truckType,
+        capacity: `${truck.capacity || 0} kg`,
+        status: truck.status,
+        lastService: truck.updatedAt || truck.createdAt,
+      }));
+      setTrucks(mapped);
     } catch (err) {
       console.error('Failed to fetch trucks:', err);
+      setTrucks([]);
     } finally {
       setLoading(false);
     }
@@ -53,7 +38,7 @@ const Trucks = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       available: { label: 'Available', className: 'status-available' },
-      on_trip: { label: 'On Trip', className: 'status-on-trip' },
+      assigned: { label: 'Assigned', className: 'status-on-trip' },
       maintenance: { label: 'Maintenance', className: 'status-maintenance' },
       offline: { label: 'Offline', className: 'status-offline' },
     };
@@ -84,7 +69,7 @@ const Trucks = () => {
           <tbody>
             {trucks.map((truck) => (
               <tr key={truck.id}>
-                <td className="truck-id">{truck.id}</td>
+                <td className="truck-id">{truck.displayId}</td>
                 <td className="vehicle-number">{truck.vehicleNumber}</td>
                 <td>{truck.driver}</td>
                 <td>{truck.vehicleType}</td>
@@ -92,7 +77,12 @@ const Trucks = () => {
                 <td>{getStatusBadge(truck.status)}</td>
                 <td>{new Date(truck.lastService).toLocaleDateString()}</td>
                 <td>
-                  <button className="action-btn view-btn">View</button>
+                  <button
+                    className="action-btn view-btn"
+                    onClick={() => onViewTruck && onViewTruck(truck.id)}
+                  >
+                    View
+                  </button>
                 </td>
               </tr>
             ))}

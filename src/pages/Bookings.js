@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './Bookings.css';
+import { API_BASE_URL } from '../services/api';
 
 const Bookings = ({ onViewBooking }) => {
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -33,7 +34,7 @@ const Bookings = ({ onViewBooking }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://54.174.219.57:5000/api/admin/bookings', {
+      const response = await fetch(`${API_BASE_URL}/admin/bookings`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -118,7 +119,7 @@ const Bookings = ({ onViewBooking }) => {
     // Fetch approved drivers
     const token = localStorage.getItem('adminToken');
     try {
-      const driversRes = await fetch('http://54.174.219.57:5000/api/admin/drivers/approved', {
+      const driversRes = await fetch(`${API_BASE_URL}/admin/drivers/approved`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const driversData = await driversRes.json();
@@ -137,7 +138,7 @@ const Bookings = ({ onViewBooking }) => {
     setAssignLoading(true);
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://54.174.219.57:5000/api/admin/bookings/${selectedBooking.id}/assign`, {
+      const response = await fetch(`${API_BASE_URL}/admin/bookings/${selectedBooking.id}/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

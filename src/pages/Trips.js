@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './Trips.css';
+import { API_BASE_URL } from '../services/api';
 
 const Trips = ({ onViewTrip }) => {
   const [allTrips, setAllTrips] = useState([]);
@@ -12,7 +13,7 @@ const Trips = ({ onViewTrip }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://54.174.219.57:5000/api/trips', {
+      const response = await fetch(`${API_BASE_URL}/trips`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

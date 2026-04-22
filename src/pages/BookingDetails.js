@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './BookingDetails.css';
+import { API_BASE_URL } from '../services/api';
 
 const formatDate = (value) => {
   if (!value) {
@@ -64,7 +65,7 @@ const BookingDetails = ({ bookingId, onBack }) => {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://54.174.219.57:5000/api/bookings/${bookingId}`, {
+      const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -94,7 +95,7 @@ const BookingDetails = ({ bookingId, onBack }) => {
     try {
       setQuoteActionLoading(quoteId);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://54.174.219.57:5000/api/quotations/${quoteId}/select`, {
+      const response = await fetch(`${API_BASE_URL}/quotations/${quoteId}/select`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

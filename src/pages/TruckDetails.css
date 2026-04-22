@@ -1,0 +1,114 @@
+.truck-details-page {
+  width: 100%;
+}
+
+.truck-details-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+  font-size: 15px;
+  color: var(--text-strong);
+}
+
+.truck-details-top {
+  margin-bottom: 14px;
+}
+
+.truck-details-back {
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.truck-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.truck-details-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.truck-details-card h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  color: var(--text-strong);
+}
+
+.truck-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.truck-details-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px dashed var(--border-soft);
+  padding-bottom: 8px;
+}
+
+.truck-details-list > div span {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.truck-details-list > div strong {
+  font-size: 13px;
+  color: var(--text-strong);
+  text-align: right;
+}
+
+.truck-details-image {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+}
+
+.truck-details-no-image {
+  font-size: 13px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+}
+
+.truck-details-error {
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .truck-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .truck-details-list > div {
+    flex-direction: column;
+  }
+
+  .truck-details-list > div strong {
+    text-align: left;
+  }
+}

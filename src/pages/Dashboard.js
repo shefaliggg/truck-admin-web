@@ -7,7 +7,7 @@ import {
   FiUserCheck,
   FiRefreshCw
 } from "react-icons/fi";
-import axios from "axios";
+import api from '../services/api';
 import "./Dashboard.css";
 
 const Dashboard = () => {
@@ -32,9 +32,7 @@ const Dashboard = () => {
   try {
     setLoading(true);
 
-    const res = await axios.get(
-      "http://54.174.219.57:5000/api/admin/dashboard"
-    );
+    const res = await api.get('/admin/dashboard');
   console.log('dashboard',res.data)
     setStats(res.data.stats);
     setPendingActions(res.data.pendingActions);
