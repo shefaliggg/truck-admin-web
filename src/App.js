@@ -34,6 +34,7 @@ function App() {
   const [selectedShipper, setSelectedShipper] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [selectedTruckId, setSelectedTruckId] = useState(null);
+  const [bookingsAssignmentPreset, setBookingsAssignmentPreset] = useState('all');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -92,6 +93,11 @@ function App() {
     setCurrentPage('users');
   };
 
+  const handleOpenBookingsFiltered = (assignment) => {
+    setBookingsAssignmentPreset(assignment || 'all');
+    setCurrentPage('bookings');
+  };
+
   const handleOpenNewBooking = () => {
     setCurrentPage('new-booking');
   };
@@ -139,9 +145,9 @@ function App() {
   };
 
   const pageTitle = currentPage === 'booking-details'
-    ? 'Booking Details'
+    ? 'Load Details'
     : currentPage === 'new-booking'
-      ? 'Add Booking'
+      ? 'Add Load'
       : currentPage === 'new-shipper'
         ? 'Add Shipper'
       : currentPage === 'new-driver'
@@ -159,9 +165,19 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return (
+          <Dashboard
+            onNavigate={setCurrentPage}
+            onAddShipper={handleOpenNewShipper}
+            onAddDriver={handleOpenNewDriver}
+            onAddBooking={handleOpenNewBooking}
+            onViewBooking={handleOpenBookingDetails}
+            onViewTrip={handleOpenTripDetails}
+            onOpenBookings={handleOpenBookingsFiltered}
+          />
+        );
       case 'bookings':
-        return <Bookings onViewBooking={handleOpenBookingDetails} />;
+        return <Bookings onViewBooking={handleOpenBookingDetails} initialAssignment={bookingsAssignmentPreset} />;
       case 'booking-details':
         return (
           <BookingDetails

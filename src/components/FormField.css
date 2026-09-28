@@ -1,0 +1,35 @@
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+/* Baseline control styling — only takes effect where a page doesn't already
+   style inputs/selects inside its own field wrapper class (those page rules
+   are more specific and win on their own). */
+.form-field-control {
+  width: 100%;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-field-control.form-field-control-error {
+  border-color: var(--danger);
+}
+
+.form-field-error {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--danger);
+}

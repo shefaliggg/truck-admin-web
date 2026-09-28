@@ -1,84 +1,88 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import './BookingDetails.css';
-import { API_BASE_URL } from '../services/api';
+import api, { API_ORIGIN } from '../services/api';
+import getErrorMessage from '../utils/errorHandler';
+
+const NA = 'N/A';
 
 const formatDate = (value) => {
-  if (!value) {
-    return 'N/A';
-  }
-
+  if (!value) return NA;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'N/A';
-  }
-
-  return date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? NA : date.toLocaleDateString();
 };
 
 const formatDateTime = (value) => {
-  if (!value) {
-    return 'N/A';
-  }
-
+  if (!value) return NA;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'N/A';
-  }
-
-  return date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? NA : date.toLocaleString();
 };
 
-const formatCurrency = (value) => {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return 'N/A';
-  }
-
-  return `₹${value.toLocaleString()}`;
-};
+const formatMoney = (value) => (typeof value === 'number' && !Number.isNaN(value) ? `$${value.toLocaleString()}` : NA);
 
 const formatStatus = (value) => {
-  if (!value) {
-    return 'N/A';
-  }
-
-  return value
-    .toString()
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  if (!value) return NA;
+  return value.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 };
+
+const STAGE_LABEL = {
+  posted: 'Posted',
+  awaiting_driver: 'Bidding',
+  assigned: 'Assigned',
+  at_pickup: 'At Pickup',
+  in_transit: 'In Transit',
+  at_delivery: 'At Delivery',
+  delivered: 'Delivered',
+};
+
+const DOC_LABEL = { bol: 'Bill of Lading', rate_confirmation: 'Rate Confirmation', other: 'Other' };
+
+const personName = (user) => (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || NA : NA);
+
+const Field = ({ label, children, sub }) => (
+  <div>
+    <span>{label}</span>
+    <strong>{children ?? NA}</strong>
+    {sub && <p>{sub}</p>}
+  </div>
+);
+
+const Timing = ({ title, location, date, details }) => (
+  <div>
+    <span>{title}</span>
+    <strong>{location?.address || NA}</strong>
+    <p>
+      {formatDate(date)}
+      {details?.time ? ` at ${details.time}` : ''}
+      {details?.windowStart || details?.windowEnd ? ` · window ${details.windowStart || '?'}–${details.windowEnd || '?'}` : ''}
+      {details?.appointmentRequired ? ' · appointment required' : ''}
+    </p>
+    {(details?.contactName || details?.contactPhone) && (
+      <p>Contact: {[details.contactName, details.contactPhone].filter(Boolean).join(' · ')}</p>
+    )}
+    {details?.instructions && <p>Instructions: {details.instructions}</p>}
+  </div>
+);
 
 const BookingDetails = ({ bookingId, onBack }) => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [quoteActionLoading, setQuoteActionLoading] = useState('');
+  const [quoteActionLoading, setQuoteActionLoading] = useState(null);
 
   const fetchBooking = useCallback(async () => {
     if (!bookingId) {
-      setError('Booking not found.');
+      setError('Load not found.');
       setLoading(false);
       return;
     }
-
     try {
       setLoading(true);
       setError('');
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch booking details');
-      }
-
-      const data = await response.json();
-      setBooking(data);
+      const res = await api.get(`/admin/loads/${bookingId}`);
+      setBooking(res.data);
     } catch (err) {
-      setError(err.message || 'Failed to fetch booking details');
+      setError(err?.response?.status === 404 ? 'Load not found.' : getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -88,237 +92,248 @@ const BookingDetails = ({ bookingId, onBack }) => {
     fetchBooking();
   }, [fetchBooking]);
 
-  const selectedQuote = useMemo(() => booking?.selectedQuote || null, [booking]);
-  const quotations = useMemo(() => booking?.quotations || [], [booking]);
+  // Cheapest first, so the admin sees the best bid at the top.
+  const quotes = useMemo(
+    () => (booking?.quotations || []).map((quote, index) => ({ ...quote, index }))
+      .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)),
+    [booking]
+  );
+  const lowestPrice = quotes.length ? quotes[0].price : null;
 
-  const handleSelectQuote = async (quoteId) => {
+  const handleSelectQuote = async (quote) => {
+    const name = personName(quote.driverId?.userId);
+    if (!window.confirm(`Select ${name}'s quote of ${formatMoney(quote.price)}? This assigns them to the load.`)) return;
     try {
-      setQuoteActionLoading(quoteId);
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${API_BASE_URL}/quotations/${quoteId}/select`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to select quotation');
-      }
-
+      setQuoteActionLoading(quote._id);
+      // Same endpoint the shipper uses; it takes the quote's position in the quotations array.
+      await api.post(`/bookings/${booking._id}/select-quote`, { quoteIndex: quote.index });
+      toast.success('Quote selected', { description: `${name} is now assigned to this load.` });
       await fetchBooking();
     } catch (err) {
-      alert(err.message || 'Failed to select quotation');
+      toast.error('Could not select quote', { description: err?.response?.data?.message || getErrorMessage(err) });
     } finally {
-      setQuoteActionLoading('');
+      setQuoteActionLoading(null);
     }
   };
 
-  if (loading) {
-    return <div className="booking-details-loading">Loading booking details...</div>;
-  }
+  if (loading) return <div className="booking-details-loading">Loading load details...</div>;
 
   if (error) {
     return (
       <div className="booking-details-page">
         <div className="booking-details-toolbar">
-          <button className="booking-back-btn" onClick={onBack}>Back to Bookings</button>
+          <button className="booking-back-btn" onClick={onBack}>Back to Loads</button>
         </div>
         <div className="booking-details-error">{error}</div>
       </div>
     );
   }
 
+  const shipper = booking.userId;
+  const company = shipper?.companyProfile;
+  const load = booking.loadDetails || {};
+  const equipment = booking.equipmentDetails || {};
+  const reqs = booking.requirements || {};
+  const rate = booking.rate || {};
+  const documents = booking.documents || [];
+  const requirementFlags = [
+    reqs.hazmat && 'Hazmat',
+    reqs.oversized && 'Oversized',
+    reqs.teamDriverRequired && 'Team driver',
+    reqs.liftgateRequired && 'Liftgate',
+    reqs.loadingType && formatStatus(reqs.loadingType),
+    reqs.unloadingType && formatStatus(reqs.unloadingType),
+  ].filter(Boolean);
+  const dims = load.dimensions;
+
   return (
     <div className="booking-details-page">
+      <Toaster position="top-right" richColors />
+
       <div className="booking-details-toolbar">
-        <button className="booking-back-btn" onClick={onBack}>Back to Bookings</button>
+        <button className="booking-back-btn" onClick={onBack}>Back to Loads</button>
       </div>
 
       <div className="booking-details-grid">
         <section className="booking-details-card booking-details-hero">
           <div>
-            <span className="booking-section-kicker">Booking</span>
-            <h2>{booking?.userId ? `${booking.userId.firstName} ${booking.userId.lastName}` : 'Unknown User'}</h2>
-            <p>{booking?.pickupLocation?.address || 'N/A'} to {booking?.deliveryLocation?.address || 'N/A'}</p>
+            <span className="booking-section-kicker">Load {booking.loadNumber}</span>
+            <h2>{booking.pickupLocation?.address || NA} → {booking.deliveryLocation?.address || NA}</h2>
+            <p>
+              {company?.companyName || personName(shipper)} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}
+              {lowestPrice != null ? ` · lowest ${formatMoney(lowestPrice)}` : ''}
+            </p>
           </div>
-          <div className="booking-status-chip">{formatStatus(booking?.status)}</div>
+          <div className="booking-status-chip">{STAGE_LABEL[booking.stage] || formatStatus(booking.status)}</div>
         </section>
 
         <section className="booking-details-card">
-          <h3>Trip Summary</h3>
+          <h3>Shipper</h3>
           <div className="booking-info-grid">
-            <div>
-              <span>Pickup Date</span>
-              <strong>{formatDate(booking?.pickupDate)}</strong>
-            </div>
-            <div>
-              <span>Delivery Date</span>
-              <strong>{formatDate(booking?.deliveryDate)}</strong>
-            </div>
-            <div>
-              <span>Truck Type</span>
-              <strong>{booking?.truckType || 'N/A'}</strong>
-            </div>
-            <div>
-              <span>Load Weight</span>
-              <strong>{booking?.loadDetails?.weight ? `${booking.loadDetails.weight} kg` : 'N/A'}</strong>
-            </div>
-            <div>
-              <span>Load Type</span>
-              <strong>{booking?.loadDetails?.type || 'N/A'}</strong>
-            </div>
-            <div>
-              <span>Estimated Amount</span>
-              <strong>{formatCurrency(booking?.loadDetails?.weight ? booking.loadDetails.weight * 5 : undefined)}</strong>
-            </div>
-          </div>
-          <div className="booking-description-block">
-            <span>Description</span>
-            <p>{booking?.loadDetails?.description || 'No load description provided.'}</p>
+            <Field label="Company">{company?.companyName}</Field>
+            <Field label="Contact" sub={shipper?.email}>{personName(shipper)}</Field>
+            <Field label="Phone">{shipper?.phone}</Field>
+            <Field label="Billing Address">{company?.billingAddress}</Field>
+            <Field label="Shipper on Load" sub={booking.shipper?.phone}>{booking.shipper?.name}</Field>
+            <Field label="Consignee" sub={booking.consignee?.phone}>{booking.consignee?.name}</Field>
           </div>
         </section>
 
         <section className="booking-details-card">
-          <h3>People</h3>
-          <div className="booking-info-grid">
-            <div>
-              <span>Customer</span>
-              <strong>{booking?.userId ? `${booking.userId.firstName} ${booking.userId.lastName}` : 'N/A'}</strong>
-              <p>{booking?.userId?.phone || booking?.userId?.email || 'N/A'}</p>
-            </div>
-            <div>
-              <span>Assigned Driver</span>
-              <strong>{booking?.driverId?.userId ? `${booking.driverId.userId.firstName} ${booking.driverId.userId.lastName}` : 'Not assigned'}</strong>
-              <p>{booking?.driverId?.userId?.phone || booking?.driverId?.userId?.email || 'N/A'}</p>
-            </div>
-            <div>
-              <span>Shipper</span>
-              <strong>{booking?.shipper?.name || 'N/A'}</strong>
-              <p>{booking?.shipper?.phone || 'N/A'}</p>
-            </div>
-            <div>
-              <span>Consignee</span>
-              <strong>{booking?.consignee?.name || 'N/A'}</strong>
-              <p>{booking?.consignee?.phone || 'N/A'}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="booking-details-card">
-          <h3>Locations</h3>
+          <h3>Pickup & Delivery</h3>
           <div className="booking-address-stack">
-            <div>
-              <span>Pickup</span>
-              <strong>{booking?.pickupLocation?.address || 'N/A'}</strong>
-              <p>{booking?.pickupLocation?.lat && booking?.pickupLocation?.lng ? `${booking.pickupLocation.lat}, ${booking.pickupLocation.lng}` : 'Coordinates unavailable'}</p>
-            </div>
-            <div>
-              <span>Delivery</span>
-              <strong>{booking?.deliveryLocation?.address || 'N/A'}</strong>
-              <p>{booking?.deliveryLocation?.lat && booking?.deliveryLocation?.lng ? `${booking.deliveryLocation.lat}, ${booking.deliveryLocation.lng}` : 'Coordinates unavailable'}</p>
-            </div>
-            <div>
-              <span>Current Location</span>
-              <strong>
-                {booking?.currentLocation?.latitude && booking?.currentLocation?.longitude
-                  ? `${booking.currentLocation.latitude}, ${booking.currentLocation.longitude}`
-                  : 'Tracking inactive'}
-              </strong>
-              <p>{formatDateTime(booking?.currentLocation?.updatedAt)}</p>
-            </div>
+            <Timing title="Pickup" location={booking.pickupLocation} date={booking.pickupDate} details={booking.pickupDetails} />
+            <Timing title="Delivery" location={booking.deliveryLocation} date={booking.deliveryDate} details={booking.deliveryDetails} />
           </div>
         </section>
 
         <section className="booking-details-card">
-          <h3>Commercials</h3>
+          <h3>Load Requirements</h3>
           <div className="booking-info-grid">
-            <div>
-              <span>Selected Quote</span>
-              <strong>{selectedQuote ? formatCurrency(selectedQuote.price) : 'Not selected'}</strong>
-              <p>
-                {selectedQuote?.driverId?.userId
-                  ? `${selectedQuote.driverId.userId.firstName} ${selectedQuote.driverId.userId.lastName}`
-                  : 'No driver selected'}
-              </p>
-            </div>
-            <div>
-              <span>Quote Count</span>
-              <strong>{booking?.quotations?.length || 0}</strong>
-            </div>
-            <div>
-              <span>Rate Confirmation</span>
-              <strong>{formatStatus(booking?.rateConfirmation?.status)}</strong>
-              <p>{booking?.rateConfirmation?.amount ? formatCurrency(booking.rateConfirmation.amount) : 'No amount generated'}</p>
-            </div>
-            <div>
-              <span>Truck</span>
-              <strong>{booking?.truckId?.registrationNumber || 'Not assigned'}</strong>
-              <p>{booking?.truckId?.truckType || 'N/A'}</p>
-            </div>
+            <Field label="Equipment">{booking.truckType}</Field>
+            <Field label="Trailer Size">{equipment.trailerSize}</Field>
+            <Field label="Weight">{load.weight ? `${load.weight.toLocaleString()} lb` : null}</Field>
+            <Field label="Commodity">{load.type}</Field>
+            <Field label="Pieces">{load.pieces}</Field>
+            <Field label="Package Type">{load.packageType ? formatStatus(load.packageType) : null}</Field>
+            <Field label="Dimensions">{dims && (dims.length || dims.width || dims.height) ? `${dims.length || '?'} × ${dims.width || '?'} × ${dims.height || '?'}` : null}</Field>
+            <Field label="Freight Class">{load.freightClass}</Field>
+            <Field label="Temperature">{equipment.temperatureRequirements}</Field>
+            <Field label="Special Equipment">{equipment.specialEquipment}</Field>
           </div>
-          {selectedQuote?.notes && (
+          {requirementFlags.length > 0 && (
             <div className="booking-description-block">
-              <span>Selected Quote Notes</span>
-              <p>{selectedQuote.notes}</p>
+              <span>Requirements</span>
+              <p>{requirementFlags.join(' · ')}</p>
             </div>
+          )}
+          {(load.description || reqs.otherRequirements) && (
+            <div className="booking-description-block">
+              <span>Notes</span>
+              <p>{[load.description, reqs.otherRequirements].filter(Boolean).join(' — ')}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="booking-details-card">
+          <h3>Rate & Status</h3>
+          <div className="booking-info-grid">
+            <Field label="Current Status" sub={booking.tripStatus ? `Trip: ${formatStatus(booking.tripStatus)}` : null}>
+              {STAGE_LABEL[booking.stage] || formatStatus(booking.status)}
+            </Field>
+            <Field label="Assigned Driver" sub={booking.driverId?.userId?.phone || booking.driverId?.userId?.email}>
+              {booking.driverId ? personName(booking.driverId.userId) : 'Not assigned'}
+            </Field>
+            <Field label="Shipper's Offered Rate" sub={rate.type ? formatStatus(rate.type) : null}>
+              {formatMoney(rate.offeredRate)}
+            </Field>
+            <Field label="Rate Confirmation" sub={booking.rateConfirmation?.amount ? formatMoney(booking.rateConfirmation.amount) : null}>
+              {formatStatus(booking.rateConfirmation?.status)}
+            </Field>
+            <Field label="Payment Terms">{rate.paymentTerms}</Field>
+            <Field label="Posted">{formatDateTime(booking.createdAt)}</Field>
+            <Field label="Reference #">{booking.referenceNumber}</Field>
+            <Field label="Truck">{booking.truckId?.registrationNumber}</Field>
+          </div>
+          {booking.internalNotes && (
+            <div className="booking-description-block">
+              <span>Internal Notes</span>
+              <p>{booking.internalNotes}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="booking-details-card">
+          <h3>Documents</h3>
+          {documents.length === 0 ? (
+            <div className="booking-quotes-empty">No documents uploaded yet.</div>
+          ) : (
+            <ul className="booking-doc-list">
+              {documents.map((doc) => (
+                <li key={doc._id || doc.fileUrl}>
+                  <div>
+                    <strong>{DOC_LABEL[doc.docType] || formatStatus(doc.docType)}</strong>
+                    <p>{doc.fileName || doc.fileUrl} · {formatDateTime(doc.uploadedAt)}</p>
+                  </div>
+                  <a href={`${API_ORIGIN}/${doc.fileUrl}`} target="_blank" rel="noreferrer">Open</a>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 
         <section className="booking-details-card booking-quotes-card">
           <div className="booking-quotes-header">
             <div>
-              <h3>Quotations</h3>
-              <p>Review submitted quotations and select one without leaving this page.</p>
+              <h3>Quotes</h3>
+              <p>
+                {booking.canSelectQuote
+                  ? 'Bidding is open. Select a quote to assign the carrier if the shipper needs help.'
+                  : 'A carrier is already assigned, so quotes can no longer be selected.'}
+              </p>
             </div>
-            <div className="booking-quotes-count">{quotations.length} total</div>
+            <div className="booking-quotes-count">{quotes.length} total</div>
           </div>
 
-          {quotations.length === 0 ? (
-            <div className="booking-quotes-empty">No quotations available for this booking yet.</div>
+          {quotes.length === 0 ? (
+            <div className="booking-quotes-empty">No quotes submitted yet.</div>
           ) : (
             <div className="booking-quotes-table-wrap">
               <table className="booking-quotes-table">
                 <thead>
                   <tr>
-                    <th>Driver</th>
+                    <th>Carrier / Driver</th>
                     <th>Contact</th>
-                    <th>Price</th>
+                    <th>Truck</th>
+                    <th>Rating</th>
+                    <th>Quote</th>
                     <th>Notes</th>
+                    <th>Submitted</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {quotations.map((quote) => {
-                    const driverName = quote?.driverId?.userId
-                      ? `${quote.driverId.userId.firstName} ${quote.driverId.userId.lastName}`
-                      : 'N/A';
-                    const isSelected = Boolean(quote.selected) || selectedQuote?._id === quote._id;
-
+                  {quotes.map((quote) => {
+                    const driver = quote.driverId;
+                    const isSelected = Boolean(quote.selected);
+                    const isLowest = quote.price === lowestPrice && quotes.length > 1;
+                    const truck = driver?.truckId;
+                    const overOffer = typeof rate.offeredRate === 'number' && typeof quote.price === 'number' ? quote.price - rate.offeredRate : null;
                     return (
-                      <tr key={quote._id}>
-                        <td>{driverName}</td>
-                        <td>{quote?.driverId?.userId?.phone || quote?.driverId?.userId?.email || 'N/A'}</td>
-                        <td className="booking-quote-price">{formatCurrency(quote.price)}</td>
+                      <tr key={quote._id || quote.index}>
+                        <td>{personName(driver?.userId)}</td>
+                        <td>{driver?.userId?.phone || driver?.userId?.email || NA}</td>
+                        <td>{truck?.truckType || driver?.vehicleType || NA}</td>
+                        <td>{driver?.totalRatings ? `${Number(driver.averageRating).toFixed(1)} (${driver.totalRatings})` : 'No ratings'}</td>
+                        <td className="booking-quote-price">
+                          {formatMoney(quote.price)}
+                          {isLowest && <span className="booking-quote-tag">Lowest</span>}
+                          {overOffer != null && overOffer !== 0 && (
+                            <div className="booking-quote-diff">{overOffer > 0 ? '+' : '−'}{formatMoney(Math.abs(overOffer))} vs offer</div>
+                          )}
+                        </td>
                         <td>{quote.notes || 'No notes'}</td>
+                        <td>{formatDateTime(quote.createdAt)}</td>
                         <td>
                           <span className={`booking-quote-status ${isSelected ? 'selected' : 'pending'}`}>
-                            {isSelected ? 'Selected' : 'Available'}
+                            {isSelected ? 'Selected' : 'Open'}
                           </span>
                         </td>
                         <td>
                           {isSelected ? (
                             <span className="booking-quote-selected-text">Current Quote</span>
-                          ) : (
+                          ) : booking.canSelectQuote ? (
                             <button
                               type="button"
                               className="booking-quote-select-btn"
-                              onClick={() => handleSelectQuote(quote._id)}
+                              onClick={() => handleSelectQuote(quote)}
                               disabled={quoteActionLoading === quote._id}
                             >
                               {quoteActionLoading === quote._id ? 'Selecting...' : 'Select Quote'}
                             </button>
+                          ) : (
+                            <span className="booking-quote-selected-text">—</span>
                           )}
                         </td>
                       </tr>

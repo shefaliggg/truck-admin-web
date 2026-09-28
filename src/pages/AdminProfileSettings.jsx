@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import * as userService from "../services/user";
+import * as authService from "../services/auth";
+import FormField from "../components/FormField";
 import "./AdminProfileSettings.css";
+
+const EMPTY_PASSWORD_FORM = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
 export default function AdminProfileSettings() {
   const [formData, setFormData] = useState({
@@ -13,6 +17,46 @@ export default function AdminProfileSettings() {
   });
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
+  const [passwordForm, setPasswordForm] = useState(EMPTY_PASSWORD_FORM);
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const handlePasswordChange = (field, value) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordErrors((prev) => ({ ...prev, [field]: "", form: "" }));
+    setPasswordSuccess("");
+  };
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault();
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+    const errors = {};
+    if (!currentPassword) errors.currentPassword = "Required";
+    if (!newPassword) errors.newPassword = "Required";
+    else if (newPassword.length < 8) errors.newPassword = "Must be at least 8 characters";
+    else if (newPassword === currentPassword) errors.newPassword = "Must be different from the current password";
+    if (!confirmPassword) errors.confirmPassword = "Required";
+    else if (confirmPassword !== newPassword) errors.confirmPassword = "Passwords do not match";
+    if (Object.keys(errors).length) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await authService.changePassword(currentPassword, newPassword);
+      setPasswordForm(EMPTY_PASSWORD_FORM);
+      setPasswordErrors({});
+      setPasswordSuccess("Password updated successfully.");
+    } catch (error) {
+      const data = error?.response?.data;
+      const message = data?.message || "Failed to update password";
+      setPasswordErrors(data?.field ? { [data.field]: message } : { form: message });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
 
   useEffect(() => {
     loadAdminProfile();
@@ -107,6 +151,45 @@ export default function AdminProfileSettings() {
       <button className="primary-btn" onClick={handleSubmit} disabled={loading}>
         {loading ? 'Saving...' : 'Save Admin Profile'}
       </button>
+
+      <form className="card password-card" onSubmit={handlePasswordSubmit} noValidate>
+        <h2 className="card-title">Change Password</h2>
+        <FormField
+          label="Current Password"
+          id="admin-current-password"
+          type="password"
+          autoComplete="current-password"
+          value={passwordForm.currentPassword}
+          onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
+          error={passwordErrors.currentPassword}
+          disabled={passwordSaving}
+        />
+        <FormField
+          label="New Password"
+          id="admin-new-password"
+          type="password"
+          autoComplete="new-password"
+          value={passwordForm.newPassword}
+          onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
+          error={passwordErrors.newPassword}
+          disabled={passwordSaving}
+        />
+        <FormField
+          label="Confirm New Password"
+          id="admin-confirm-password"
+          type="password"
+          autoComplete="new-password"
+          value={passwordForm.confirmPassword}
+          onChange={(e) => handlePasswordChange("confirmPassword", e.target.value)}
+          error={passwordErrors.confirmPassword}
+          disabled={passwordSaving}
+        />
+        {passwordErrors.form && <div className="form-field-error">{passwordErrors.form}</div>}
+        {passwordSuccess && <div className="password-success">{passwordSuccess}</div>}
+        <button className="primary-btn" type="submit" disabled={passwordSaving}>
+          {passwordSaving ? "Updating..." : "Update Password"}
+        </button>
+      </form>
     </div>
   );
 }

@@ -16,6 +16,11 @@ export const getPendingDrivers = async () => {
   return response.data.drivers;
 };
 
+export const getIncompleteDrivers = async () => {
+  const response = await api.get('/admin/drivers/incomplete');
+  return response.data.drivers;
+};
+
 export const approveDriver = async (driverId) => {
   const response = await api.put(`/admin/drivers/${driverId}/approve`);
   return response.data;
@@ -28,4 +33,9 @@ export const rejectDriver = async (driverId) => {
 
 export const verifyDriverBank = async (driverId) => {
   return api.put(`/drivers/${driverId}/verify-bank`);
+};
+
+export const inviteDriver = async (payload) => {
+  const response = await api.post('/admin/drivers/invite', payload);
+  return response.data;
 };

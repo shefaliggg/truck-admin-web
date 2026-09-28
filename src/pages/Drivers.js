@@ -120,15 +120,22 @@ const Drivers = ({ onViewDriver }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteError, setInviteError] = useState('');
 
   const fetchDrivers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const pending = await driverService.getPendingDrivers();
-      const approved = await driverService.getApprovedDrivers();
-      const rejected = await driverService.getRejectedDrivers();
-      setDrivers({ pending, approved, rejected });
+      const [pending, approved, rejected, incomplete] = await Promise.all([
+        driverService.getPendingDrivers(),
+        driverService.getApprovedDrivers(),
+        driverService.getRejectedDrivers(),
+        driverService.getIncompleteDrivers(),
+      ]);
+      setDrivers({ pending, approved, rejected, incomplete });
     } catch (err) {
       const friendlyError = getErrorMessage(err);
       setError(friendlyError);
@@ -200,6 +207,51 @@ const Drivers = ({ onViewDriver }) => {
     setConfirmAction(null);
   };
 
+  const handleInviteChange = (field, value) => {
+    setInviteForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleOpenInvite = () => {
+    setInviteForm({ firstName: '', lastName: '', email: '', phone: '' });
+    setInviteError('');
+    setShowInviteModal(true);
+  };
+
+  const handleCloseInvite = () => {
+    setShowInviteModal(false);
+    setInviteError('');
+  };
+
+  const handleInviteSubmit = async (event) => {
+    event.preventDefault();
+    if (!inviteForm.firstName.trim() || !inviteForm.lastName.trim() || !inviteForm.email.trim()) {
+      setInviteError('First name, last name, and email are required');
+      return;
+    }
+
+    try {
+      setInviteSubmitting(true);
+      setInviteError('');
+      await driverService.inviteDriver({
+        firstName: inviteForm.firstName.trim(),
+        lastName: inviteForm.lastName.trim(),
+        email: inviteForm.email.trim().toLowerCase(),
+        phone: inviteForm.phone.trim() || undefined,
+      });
+      toast.success('Invitation sent!', {
+        description: `${inviteForm.firstName} will receive an email to verify their account and complete their profile.`,
+        duration: 4000,
+        position: 'top-right',
+      });
+      setShowInviteModal(false);
+      fetchDrivers();
+    } catch (err) {
+      setInviteError(getErrorMessage(err));
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       pending: { label: 'Pending', className: 'status-pending' },
@@ -216,6 +268,7 @@ const Drivers = ({ onViewDriver }) => {
       ...(drivers.pending || []),
       ...(drivers.approved || []),
       ...(drivers.rejected || []),
+      ...(drivers.incomplete || []),
     ];
   }, [drivers]);
 
@@ -294,12 +347,14 @@ const Drivers = ({ onViewDriver }) => {
               onChange={(event) => setStatusFilter(event.target.value)}
             >
               <option value="all">All</option>
+              <option value="incomplete">Incomplete</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
           </div>
           <div className="driver-filter-field driver-refresh-wrap">
+            <button type="button" className="invite-btn" onClick={handleOpenInvite}>+ Invite Driver</button>
             <button type="button" className="refresh-btn" onClick={fetchDrivers}>Refresh</button>
           </div>
         </div>
@@ -356,6 +411,69 @@ const Drivers = ({ onViewDriver }) => {
                 {actionLoading === confirmAction.driverId ? 'Processing...' : 'Yes, Confirm'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showInviteModal && (
+        <div className="modal-overlay" onClick={handleCloseInvite}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <form className="invite-form" onSubmit={handleInviteSubmit}>
+              <h2>Invite Driver</h2>
+              <div className="invite-form-grid">
+                <div className="invite-field">
+                  <label htmlFor="invite-driver-first-name">First Name</label>
+                  <input
+                    id="invite-driver-first-name"
+                    type="text"
+                    value={inviteForm.firstName}
+                    onChange={(e) => handleInviteChange('firstName', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="invite-field">
+                  <label htmlFor="invite-driver-last-name">Last Name</label>
+                  <input
+                    id="invite-driver-last-name"
+                    type="text"
+                    value={inviteForm.lastName}
+                    onChange={(e) => handleInviteChange('lastName', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="invite-field invite-field-wide">
+                  <label htmlFor="invite-driver-email">Email</label>
+                  <input
+                    id="invite-driver-email"
+                    type="email"
+                    value={inviteForm.email}
+                    onChange={(e) => handleInviteChange('email', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="invite-field invite-field-wide">
+                  <label htmlFor="invite-driver-phone">Phone (optional)</label>
+                  <input
+                    id="invite-driver-phone"
+                    type="text"
+                    value={inviteForm.phone}
+                    onChange={(e) => handleInviteChange('phone', e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="invite-note">
+                We'll email an invitation so the driver can open the CP Driver app, verify their account, and complete their profile for review.
+              </p>
+              {inviteError && <div className="new-driver-error">{inviteError}</div>}
+              <div className="new-driver-actions">
+                <button type="button" className="new-driver-cancel" onClick={handleCloseInvite} disabled={inviteSubmitting}>
+                  Cancel
+                </button>
+                <button type="submit" className="new-driver-submit" disabled={inviteSubmitting}>
+                  {inviteSubmitting ? 'Sending...' : 'Send Invitation'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

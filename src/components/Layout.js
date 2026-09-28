@@ -38,7 +38,7 @@ const Layout = ({
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
-    { id: 'bookings', label: 'Bookings', icon: <FiPackage /> },
+    { id: 'bookings', label: 'Loads', icon: <FiPackage /> },
     { id: 'trips', label: 'Trips', icon: <FiMap /> },
     { id: 'users', label: 'Users (Shippers)', icon: <FiUsers /> },
     { id: 'drivers', label: 'Drivers', icon: <FiTruck /> },
@@ -60,7 +60,7 @@ const Layout = ({
         <div className="sidebar-header">
           <div className="logo-area">
             <FaTruckMoving className="logo-icon" />
-            {!sidebarCollapsed && <h2>VCG Admin</h2>}
+            {!sidebarCollapsed && <h2>CP Admin</h2>}
           </div>
 
           <button
@@ -102,10 +102,11 @@ const Layout = ({
           <h1 className="page-title">
             {pageTitle || menuItems.find(i => i.id === currentPage)?.label || 'Dashboard'}
           </h1>
+          <div id="header-actions-slot" className="header-actions-slot" />
           {showAddBookingButton && (
             <button className="header-add-booking-btn" onClick={onAddBooking}>
               <FiPlus />
-              <span>Add Booking</span>
+              <span>Add Load</span>
             </button>
           )}
           {showAddShipperButton && (

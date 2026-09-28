@@ -26,6 +26,34 @@
   gap: 12px;
 }
 
+.driver-details-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.driver-details-tab {
+  border: none;
+  background: none;
+  padding: 10px 4px;
+  margin-bottom: -1px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.driver-details-tab + .driver-details-tab {
+  margin-left: 12px;
+}
+
+.driver-details-tab.active {
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
+}
+
 .driver-details-card {
   background: white;
   border-radius: 14px;
@@ -62,6 +90,13 @@
   font-size: 13px;
 }
 
+.driver-status-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .driver-status-chip {
   padding: 8px 12px;
   border-radius: 999px;
@@ -70,6 +105,11 @@
   white-space: nowrap;
   background: rgba(var(--brand-secondary-rgb), 0.24);
   color: var(--text-strong);
+}
+
+.driver-status-chip.onboarding {
+  background: rgba(var(--brand-primary-rgb), 0.1);
+  font-weight: 600;
 }
 
 .driver-details-card h3 {
@@ -116,6 +156,61 @@
   margin: 0 0 8px;
   font-size: 13px;
   color: var(--text-strong);
+}
+
+.driver-doc-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.driver-doc-item-header h4 {
+  margin: 0;
+}
+
+.driver-doc-status {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(var(--brand-secondary-rgb), 0.24);
+  color: var(--text-strong);
+}
+
+.driver-doc-status.approved {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16803c;
+}
+
+.driver-doc-status.rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+}
+
+.driver-doc-link {
+  display: inline-block;
+  padding: 10px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+  text-align: center;
+  color: var(--brand-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.driver-doc-meta {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.driver-doc-rejection {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #b91c1c;
 }
 
 .driver-doc-image {

@@ -1,293 +1,217 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Toaster, toast } from 'sonner';
 import './Bookings.css';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
+import FormField from '../components/FormField';
+import getErrorMessage from '../utils/errorHandler';
 
-const Bookings = ({ onViewBooking }) => {
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [allBookings, setAllBookings] = useState([]);
+const TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'posted', label: 'Posted' },
+  { id: 'bidding', label: 'Bidding' },
+  { id: 'assigned', label: 'Assigned' },
+  { id: 'in_transit', label: 'In Transit' },
+  { id: 'delivered', label: 'Delivered' },
+];
+
+const STAGE_LABEL = {
+  posted: 'Posted',
+  awaiting_driver: 'Bidding',
+  assigned: 'Assigned',
+  at_pickup: 'At Pickup',
+  in_transit: 'In Transit',
+  at_delivery: 'At Delivery',
+  delivered: 'Delivered',
+};
+
+const formatDate = (value) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+};
+
+const formatMoney = (value) => `$${Number(value).toLocaleString()}`;
+
+// initialAssignment ('all' | 'assigned' | 'unassigned') lets the dashboard KPI cards deep-link here.
+const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
+  const [loads, setLoads] = useState([]);
+  const [tabCounts, setTabCounts] = useState({});
+  const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [drivers, setDrivers] = useState([]);
-  const [selectedDriver, setSelectedDriver] = useState('');
-  const [assignLoading, setAssignLoading] = useState(false);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTruckType, setSelectedTruckType] = useState('all');
-  const [assignmentFilter, setAssignmentFilter] = useState('all');
+  const [assignmentFilter, setAssignmentFilter] = useState(initialAssignment);
 
-  const statusOptions = useMemo(() => {
-    const countByStatus = allBookings.reduce((accumulator, booking) => {
-      accumulator[booking.status] = (accumulator[booking.status] || 0) + 1;
-      return accumulator;
-    }, {});
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+  const [selectedDriver, setSelectedDriver] = useState('');
+  const [assignError, setAssignError] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
 
-    return [
-      { id: 'all', label: 'All', count: allBookings.length },
-      { id: 'pending', label: 'Pending', count: countByStatus.pending || 0 },
-      { id: 'confirmed', label: 'Confirmed', count: countByStatus.confirmed || 0 },
-      { id: 'assigned', label: 'Assigned', count: countByStatus.assigned || 0 },
-      { id: 'in_progress', label: 'In Progress', count: countByStatus.in_progress || 0 },
-    ];
-  }, [allBookings]);
-
-  const fetchBookings = useCallback(async () => {
+  const fetchLoads = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${API_BASE_URL}/admin/bookings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
-      }
-      const allBookings = await response.json();
-      // Transform backend data to UI format
-      const transformedBookings = allBookings.map(booking => ({
-        id: booking._id,
-        user: booking.userId ? `${booking.userId.firstName} ${booking.userId.lastName}` : 'Unknown User',
-        fromLocation: booking.pickupLocation?.address || 'N/A',
-        toLocation: booking.deliveryLocation?.address || 'N/A',
-        pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toISOString().split('T')[0] : 'N/A',
-        truckType: booking.truckType || 'N/A',
-        loadWeight: booking.loadDetails?.weight ? `${booking.loadDetails.weight} kg` : 'N/A',
-        amount: booking.loadDetails?.weight ? booking.loadDetails.weight * 5 : 0,
-        status: booking.status || 'pending',
-        assignedDriver: booking.driverId?.userId ? `${booking.driverId.userId.firstName} ${booking.driverId.userId.lastName}` : null,
-        driverId: booking.driverId?._id || null
-      }));
-      setAllBookings(transformedBookings);
+      setError('');
+      const res = await api.get('/admin/loads');
+      setLoads(res.data.loads || []);
+      setTabCounts(res.data.tabCounts || {});
     } catch (err) {
-      console.error('Failed to fetch bookings:', err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+    fetchLoads();
+  }, [fetchLoads]);
 
   const truckTypeOptions = useMemo(
-    () => Array.from(new Set(allBookings.map((booking) => booking.truckType).filter(Boolean))),
-    [allBookings]
+    () => [...new Set(loads.map((load) => load.truckType).filter(Boolean))].sort(),
+    [loads]
   );
 
-  const filteredBookings = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-
-    return allBookings.filter((booking) => {
-      if (selectedStatus !== 'all' && booking.status !== selectedStatus) {
-        return false;
-      }
-
-      if (selectedTruckType !== 'all' && booking.truckType !== selectedTruckType) {
-        return false;
-      }
-
-      if (assignmentFilter === 'assigned' && !booking.assignedDriver) {
-        return false;
-      }
-
-      if (assignmentFilter === 'unassigned' && booking.assignedDriver) {
-        return false;
-      }
-
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const searchableText = [
-        booking.id,
-        booking.user,
-        booking.fromLocation,
-        booking.toLocation,
-        booking.truckType,
-        booking.assignedDriver || 'unassigned',
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return searchableText.includes(normalizedSearch);
+  const filteredLoads = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return loads.filter((load) => {
+      if (activeTab !== 'all' && load.tab !== activeTab) return false;
+      if (selectedTruckType !== 'all' && load.truckType !== selectedTruckType) return false;
+      if (assignmentFilter === 'assigned' && !load.driver) return false;
+      if (assignmentFilter === 'unassigned' && load.driver) return false;
+      if (!q) return true;
+      return [load.loadNumber, load.shipper, load.pickup, load.delivery, load.driver, load.truckType]
+        .some((value) => value && value.toLowerCase().includes(q));
     });
-  }, [allBookings, assignmentFilter, searchTerm, selectedStatus, selectedTruckType]);
+  }, [loads, activeTab, selectedTruckType, assignmentFilter, searchTerm]);
 
-  const openAssignModal = async (booking) => {
-    setSelectedBooking(booking);
-    setShowAssignModal(true);
-    // Fetch approved drivers
-    const token = localStorage.getItem('adminToken');
+  const openAssignModal = async (load) => {
+    setAssignTarget(load);
+    setSelectedDriver('');
+    setAssignError('');
     try {
-      const driversRes = await fetch(`${API_BASE_URL}/admin/drivers/approved`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const driversData = await driversRes.json();
-      setDrivers(driversData.drivers || []);
+      const res = await api.get('/admin/drivers/approved');
+      setDrivers(res.data.drivers || []);
     } catch (err) {
-      console.error('Failed to fetch drivers:', err);
-      alert('Failed to load drivers');
+      setAssignError(getErrorMessage(err));
     }
   };
 
-  const handleAssignDriver = async () => {
+  const closeAssignModal = () => {
+    if (!assignLoading) setAssignTarget(null);
+  };
+
+  const handleAssignDriver = async (event) => {
+    event.preventDefault();
     if (!selectedDriver) {
-      alert('Please select a driver');
+      setAssignError('Select a driver');
       return;
     }
     setAssignLoading(true);
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${API_BASE_URL}/admin/bookings/${selectedBooking.id}/assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          driverId: selectedDriver
-        })
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to assign driver');
-      }
-      alert('✓ Driver assigned successfully!');
-      setShowAssignModal(false);
-      setSelectedBooking(null);
-      setSelectedDriver('');
-      fetchBookings(); // Refresh list
+      await api.post(`/admin/bookings/${assignTarget.id}/assign`, { driverId: selectedDriver });
+      toast.success('Driver assigned', { description: 'The load now follows the rate-confirmation flow.' });
+      setAssignTarget(null);
+      fetchLoads();
     } catch (err) {
-      alert('❌ ' + err.message);
+      setAssignError(err?.response?.data?.message || getErrorMessage(err));
     } finally {
       setAssignLoading(false);
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      pending: { label: 'Pending', className: 'status-pending' },
-      confirmed: { label: 'Confirmed', className: 'status-confirmed' },
-      assigned: { label: 'Assigned', className: 'status-assigned' },
-      in_progress: { label: 'In Progress', className: 'status-progress' },
-      completed: { label: 'Completed', className: 'status-completed' },
-    };
-    const config = statusConfig[status] || { label: status, className: 'status-default' };
-    return <span className={`status-badge ${config.className}`}>{config.label}</span>;
-  };
-
-  if (loading) {
-    return <div className="bookings-loading">Loading bookings...</div>;
+  if (loading && loads.length === 0) {
+    return <div className="bookings-loading">Loading loads...</div>;
   }
 
   return (
     <div className="bookings-page">
+      <Toaster position="top-right" richColors />
+
+      <div className="loads-tabs" role="tablist">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`loads-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+            <span className="loads-tab-count">{tabCounts[tab.id] || 0}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="bookings-filters-panel">
         <div className="bookings-filters-grid">
           <div className="filter-field filter-field-wide">
-            <label htmlFor="booking-search">Search</label>
+            <label htmlFor="load-search">Search</label>
             <input
-              id="booking-search"
+              id="load-search"
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by user, booking ID, pickup, drop, truck type"
+              placeholder="Load #, shipper, route, driver, truck type"
             />
           </div>
 
           <div className="filter-field">
-            <label htmlFor="status-filter">Status</label>
-            <select
-              id="status-filter"
-              value={selectedStatus}
-              onChange={(event) => setSelectedStatus(event.target.value)}
-            >
-              {statusOptions.map((statusOption) => (
-                <option key={statusOption.id} value={statusOption.id}>
-                  {statusOption.label} ({statusOption.count})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-field">
             <label htmlFor="truck-type-filter">Truck Type</label>
-            <select
-              id="truck-type-filter"
-              value={selectedTruckType}
-              onChange={(event) => setSelectedTruckType(event.target.value)}
-            >
+            <select id="truck-type-filter" value={selectedTruckType} onChange={(event) => setSelectedTruckType(event.target.value)}>
               <option value="all">All Truck Types</option>
               {truckTypeOptions.map((truckType) => (
-                <option key={truckType} value={truckType}>
-                  {truckType}
-                </option>
+                <option key={truckType} value={truckType}>{truckType}</option>
               ))}
             </select>
           </div>
 
           <div className="filter-field">
             <label htmlFor="assignment-filter">Assignment</label>
-            <select
-              id="assignment-filter"
-              value={assignmentFilter}
-              onChange={(event) => setAssignmentFilter(event.target.value)}
-            >
-              <option value="all">All Bookings</option>
+            <select id="assignment-filter" value={assignmentFilter} onChange={(event) => setAssignmentFilter(event.target.value)}>
+              <option value="all">All Loads</option>
               <option value="assigned">Assigned</option>
               <option value="unassigned">Unassigned</option>
             </select>
           </div>
         </div>
-
       </div>
 
-      {/* Bookings Table */}
+      {error && <div className="error-message">{error}</div>}
+
       <div className="table-container">
         <table className="bookings-table">
           <thead>
             <tr>
-              <th>User</th>
-              <th>Pickup Date</th>
-              <th>Truck Type</th>
-              <th>Load Weight</th>
-              <th>Amount</th>
+              <th>Load #</th>
+              <th>Shipper</th>
+              <th>Route</th>
+              <th>Quotes</th>
               <th>Status</th>
-              <th>Assigned Driver</th>
+              <th>Pickup</th>
+              <th>Driver</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredBookings.map((booking) => (
-              <tr key={booking.id}>
-                <td>{booking.user}</td>
-                <td>{new Date(booking.pickupDate).toLocaleDateString()}</td>
-                <td>{booking.truckType}</td>
-                <td>{booking.loadWeight}</td>
-                <td className="amount">₹{booking.amount.toLocaleString()}</td>
-                <td>{getStatusBadge(booking.status)}</td>
+            {filteredLoads.map((load) => (
+              <tr key={load.id}>
+                <td className="loads-number">{load.loadNumber}</td>
+                <td>{load.shipper}</td>
+                <td>{load.pickup || 'N/A'} → {load.delivery || 'N/A'}</td>
                 <td>
-                  {booking.assignedDriver ? (
-                    <div>{booking.assignedDriver}</div>
-                  ) : (
-                    <span className="no-driver">Not assigned</span>
-                  )}
+                  <span className={`loads-quotes ${load.quoteCount > 0 ? 'has-quotes' : ''}`}>{load.quoteCount}</span>
+                  {load.lowestQuote != null && <div className="loads-quote-low">from {formatMoney(load.lowestQuote)}</div>}
                 </td>
+                <td><span className={`loads-stage loads-stage-${load.stage}`}>{STAGE_LABEL[load.stage]}</span></td>
+                <td>{formatDate(load.pickupDate)}</td>
+                <td>{load.driver || <span className="no-driver">Not assigned</span>}</td>
                 <td>
                   <div className="action-buttons">
-                    <button 
-                      className="action-btn view-btn"
-                      onClick={() => onViewBooking?.(booking.id)}
-                    >
-                      View
-                    </button>
-                    {(booking.status === 'pending' || booking.status === 'confirmed') && !booking.driverId && (
-                      <button 
-                        className="action-btn assign-btn"
-                        onClick={() => openAssignModal(booking)}
-                      >
-                        Assign Driver
-                      </button>
+                    <button className="action-btn view-btn" onClick={() => onViewBooking?.(load.id)}>View</button>
+                    {!load.driver && (
+                      <button className="action-btn assign-btn" onClick={() => openAssignModal(load)}>Assign Driver</button>
                     )}
                   </div>
                 </td>
@@ -296,60 +220,46 @@ const Bookings = ({ onViewBooking }) => {
           </tbody>
         </table>
 
-        {filteredBookings.length === 0 && (
-          <div className="no-data">No bookings found for this category</div>
-        )}
+        {filteredLoads.length === 0 && <div className="no-data">No loads found for this view.</div>}
       </div>
 
-      {/* Assign Driver Modal */}
-      {showAssignModal && (
-        <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
+      {assignTarget && (
+        <div className="modal-overlay" onClick={closeAssignModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Assign Driver</h2>
             <p className="modal-booking-info">
-              Booking: {selectedBooking?.fromLocation} → {selectedBooking?.toLocation}
+              {assignTarget.loadNumber}: {assignTarget.pickup || 'N/A'} → {assignTarget.delivery || 'N/A'}
             </p>
-
-            <div className="modal-form">
-              <div className="form-group">
-                <label>Select Driver *</label>
-                <select 
-                  value={selectedDriver} 
-                  onChange={(e) => setSelectedDriver(e.target.value)}
-                  disabled={assignLoading}
-                >
-                  <option value="">-- Select Driver --</option>
-                  {drivers.map((driver) => (
-                    <option key={driver._id} value={driver._id}>
-                      {driver.userId.firstName} {driver.userId.lastName} - {driver.vehicleType || 'N/A'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+            <form className="modal-form" onSubmit={handleAssignDriver} noValidate>
+              <FormField
+                as="select"
+                label="Driver"
+                id="load-assign-driver"
+                value={selectedDriver}
+                error={assignError}
+                disabled={assignLoading}
+                onChange={(e) => { setSelectedDriver(e.target.value); setAssignError(''); }}
+              >
+                <option value="">-- Select approved driver --</option>
+                {drivers.map((driver) => (
+                  <option key={driver._id} value={driver._id}>
+                    {driver.userId?.firstName} {driver.userId?.lastName}
+                    {driver.truckId?.truckType ? ` · ${driver.truckId.truckType}` : ''}
+                  </option>
+                ))}
+              </FormField>
               <div className="modal-actions">
-                <button 
-                  className="btn btn-cancel" 
-                  onClick={() => setShowAssignModal(false)}
-                  disabled={assignLoading}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn btn-confirm" 
-                  onClick={handleAssignDriver}
-                  disabled={assignLoading || !selectedDriver}
-                >
+                <button type="button" className="btn btn-cancel" onClick={closeAssignModal} disabled={assignLoading}>Cancel</button>
+                <button type="submit" className="btn btn-confirm" disabled={assignLoading}>
                   {assignLoading ? 'Assigning...' : 'Confirm Assignment'}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
-
     </div>
   );
-}
+};
 
 export default Bookings;

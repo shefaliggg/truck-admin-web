@@ -67,7 +67,7 @@
 }
 
 .booking-status-chip {
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  background: var(--brand-primary);
   color: #ffffff;
   border-radius: 999px;
   padding: 10px 16px;
@@ -161,7 +161,7 @@
 }
 
 .booking-quote-select-btn {
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  background: var(--brand-primary);
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -253,4 +253,50 @@
   .booking-details-card {
     padding: 18px;
   }
+}
+
+.booking-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.booking-doc-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.booking-doc-list p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.booking-doc-list a {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-primary);
+}
+
+.booking-quote-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(34, 197, 94, 0.15);
+  color: #16803c;
+}
+
+.booking-quote-diff {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
 }

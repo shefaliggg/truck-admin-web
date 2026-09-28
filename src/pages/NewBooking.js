@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../services/api';
+import FormField from '../components/FormField';
 import './NewBooking.css';
 
 const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
@@ -10,7 +11,7 @@ const loadGoogleMapsScript = () => {
   }
 
   if (!GOOGLE_MAPS_KEY) {
-    return Promise.reject(new Error('Google Maps key is missing')); 
+    return Promise.reject(new Error('Google Maps key is missing'));
   }
 
   const existingScript = document.getElementById('google-maps-script');
@@ -33,6 +34,42 @@ const loadGoogleMapsScript = () => {
   });
 };
 
+const REQUIRED_FIELDS = [
+  'userId',
+  'truckType',
+  'pickupDate',
+  'weight',
+  'pickupAddress',
+  'pickupLat',
+  'pickupLng',
+  'deliveryAddress',
+  'deliveryLat',
+  'deliveryLng',
+];
+
+const validateField = (field, value) => {
+  switch (field) {
+    case 'userId':
+      return value ? '' : 'Required';
+    case 'truckType':
+      return value.trim() ? '' : 'Required';
+    case 'pickupDate':
+      return value ? '' : 'Required';
+    case 'weight':
+      return value && Number(value) > 0 ? '' : 'Enter a valid weight';
+    case 'pickupAddress':
+    case 'deliveryAddress':
+      return value.trim() ? '' : 'Required';
+    case 'pickupLat':
+    case 'pickupLng':
+    case 'deliveryLat':
+    case 'deliveryLng':
+      return value ? '' : 'Required';
+    default:
+      return '';
+  }
+};
+
 const NewBooking = ({ onSuccess, onCancel }) => {
   const [shippers, setShippers] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -41,6 +78,7 @@ const NewBooking = ({ onSuccess, onCancel }) => {
   const [submitting, setSubmitting] = useState(false);
   const [mapsEnabled, setMapsEnabled] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
 
   const pickupRef = useRef(null);
   const deliveryRef = useRef(null);
@@ -189,7 +227,16 @@ const NewBooking = ({ onSuccess, onCancel }) => {
   }, []);
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    const nextForm = { ...form, [field]: value };
+    setForm(nextForm);
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const msg = validateField(field, value);
+      if (msg) return prev;
+      const updated = { ...prev };
+      delete updated[field];
+      return updated;
+    });
   };
 
   const handleTruckChange = (truckId) => {
@@ -202,26 +249,24 @@ const NewBooking = ({ onSuccess, onCancel }) => {
   };
 
   const validate = () => {
-    if (!form.userId) return 'Please select a shipper';
-    if (!form.truckType) return 'Please provide truck type';
-    if (!form.pickupDate) return 'Please select pickup date';
-    if (!form.weight || Number(form.weight) <= 0) return 'Please enter valid load weight';
-    if (!form.pickupAddress || !form.deliveryAddress) return 'Please provide pickup and delivery addresses';
-    if (!form.pickupLat || !form.pickupLng || !form.deliveryLat || !form.deliveryLng) {
-      return 'Please provide latitude and longitude for both locations';
-    }
-    return '';
+    const newErrors = {};
+    REQUIRED_FIELDS.forEach((field) => {
+      const msg = validateField(field, form[field]);
+      if (msg) newErrors[field] = msg;
+    });
+    return newErrors;
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
     setSubmitting(true);
+    setErrors({});
     setError('');
 
     const payload = {
@@ -274,26 +319,27 @@ const NewBooking = ({ onSuccess, onCancel }) => {
 
   return (
     <div className="new-booking-page">
-      <form className="new-booking-form" onSubmit={handleSubmit}>
+      <form className="new-booking-form" onSubmit={handleSubmit} noValidate>
         <section className="new-booking-card">
           <h3>Booking Setup</h3>
           <div className="new-booking-grid">
-            <div className="new-booking-field">
-              <label htmlFor="shipper-select">Shipper</label>
-              <select
-                id="shipper-select"
-                value={form.userId}
-                onChange={(event) => handleChange('userId', event.target.value)}
-                required
-              >
-                <option value="">Select shipper</option>
-                {shippers.map((shipper) => (
-                  <option key={shipper.id} value={shipper.id}>
-                    {shipper.firstName} {shipper.lastName} ({shipper.companyName || 'No company'})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <FormField
+              as="select"
+              wrapperClassName="new-booking-field"
+              label="Shipper"
+              id="shipper-select"
+              value={form.userId}
+              onChange={(event) => handleChange('userId', event.target.value)}
+              required
+              error={errors.userId}
+            >
+              <option value="">Select shipper</option>
+              {shippers.map((shipper) => (
+                <option key={shipper.id} value={shipper.id}>
+                  {shipper.firstName} {shipper.lastName} ({shipper.companyName || 'No company'})
+                </option>
+              ))}
+            </FormField>
 
             <div className="new-booking-field">
               <label htmlFor="driver-select">Driver (optional)</label>
@@ -327,28 +373,28 @@ const NewBooking = ({ onSuccess, onCancel }) => {
               </select>
             </div>
 
-            <div className="new-booking-field">
-              <label htmlFor="truck-type">Truck Type</label>
-              <input
-                id="truck-type"
-                type="text"
-                value={form.truckType}
-                onChange={(event) => handleChange('truckType', event.target.value)}
-                placeholder="e.g. 20 Ton Truck"
-                required
-              />
-            </div>
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="Truck Type"
+              id="truck-type"
+              type="text"
+              value={form.truckType}
+              onChange={(event) => handleChange('truckType', event.target.value)}
+              placeholder="e.g. 20 Ton Truck"
+              required
+              error={errors.truckType}
+            />
 
-            <div className="new-booking-field">
-              <label htmlFor="pickup-date">Pickup Date</label>
-              <input
-                id="pickup-date"
-                type="date"
-                value={form.pickupDate}
-                onChange={(event) => handleChange('pickupDate', event.target.value)}
-                required
-              />
-            </div>
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="Pickup Date"
+              id="pickup-date"
+              type="date"
+              value={form.pickupDate}
+              onChange={(event) => handleChange('pickupDate', event.target.value)}
+              required
+              error={errors.pickupDate}
+            />
 
             <div className="new-booking-field">
               <label htmlFor="delivery-date">Delivery Date</label>
@@ -370,92 +416,92 @@ const NewBooking = ({ onSuccess, onCancel }) => {
             </p>
           )}
           <div className="new-booking-grid">
-            <div className="new-booking-field new-booking-field-wide">
-              <label htmlFor="pickup-address">From (Pickup Address)</label>
-              <input
-                id="pickup-address"
-                ref={pickupRef}
-                type="text"
-                value={form.pickupAddress}
-                onChange={(event) => handleChange('pickupAddress', event.target.value)}
-                placeholder="Search pickup with Google Maps"
-                required
-              />
-            </div>
-            <div className="new-booking-field">
-              <label htmlFor="pickup-lat">From Latitude</label>
-              <input
-                id="pickup-lat"
-                type="number"
-                step="any"
-                value={form.pickupLat}
-                onChange={(event) => handleChange('pickupLat', event.target.value)}
-                required
-              />
-            </div>
-            <div className="new-booking-field">
-              <label htmlFor="pickup-lng">From Longitude</label>
-              <input
-                id="pickup-lng"
-                type="number"
-                step="any"
-                value={form.pickupLng}
-                onChange={(event) => handleChange('pickupLng', event.target.value)}
-                required
-              />
-            </div>
+            <FormField
+              ref={pickupRef}
+              wrapperClassName="new-booking-field new-booking-field-wide"
+              label="From (Pickup Address)"
+              id="pickup-address"
+              type="text"
+              value={form.pickupAddress}
+              onChange={(event) => handleChange('pickupAddress', event.target.value)}
+              placeholder="Search pickup with Google Maps"
+              required
+              error={errors.pickupAddress}
+            />
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="From Latitude"
+              id="pickup-lat"
+              type="number"
+              step="any"
+              value={form.pickupLat}
+              onChange={(event) => handleChange('pickupLat', event.target.value)}
+              required
+              error={errors.pickupLat}
+            />
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="From Longitude"
+              id="pickup-lng"
+              type="number"
+              step="any"
+              value={form.pickupLng}
+              onChange={(event) => handleChange('pickupLng', event.target.value)}
+              required
+              error={errors.pickupLng}
+            />
 
-            <div className="new-booking-field new-booking-field-wide">
-              <label htmlFor="delivery-address">To (Delivery Address)</label>
-              <input
-                id="delivery-address"
-                ref={deliveryRef}
-                type="text"
-                value={form.deliveryAddress}
-                onChange={(event) => handleChange('deliveryAddress', event.target.value)}
-                placeholder="Search delivery with Google Maps"
-                required
-              />
-            </div>
-            <div className="new-booking-field">
-              <label htmlFor="delivery-lat">To Latitude</label>
-              <input
-                id="delivery-lat"
-                type="number"
-                step="any"
-                value={form.deliveryLat}
-                onChange={(event) => handleChange('deliveryLat', event.target.value)}
-                required
-              />
-            </div>
-            <div className="new-booking-field">
-              <label htmlFor="delivery-lng">To Longitude</label>
-              <input
-                id="delivery-lng"
-                type="number"
-                step="any"
-                value={form.deliveryLng}
-                onChange={(event) => handleChange('deliveryLng', event.target.value)}
-                required
-              />
-            </div>
+            <FormField
+              ref={deliveryRef}
+              wrapperClassName="new-booking-field new-booking-field-wide"
+              label="To (Delivery Address)"
+              id="delivery-address"
+              type="text"
+              value={form.deliveryAddress}
+              onChange={(event) => handleChange('deliveryAddress', event.target.value)}
+              placeholder="Search delivery with Google Maps"
+              required
+              error={errors.deliveryAddress}
+            />
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="To Latitude"
+              id="delivery-lat"
+              type="number"
+              step="any"
+              value={form.deliveryLat}
+              onChange={(event) => handleChange('deliveryLat', event.target.value)}
+              required
+              error={errors.deliveryLat}
+            />
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="To Longitude"
+              id="delivery-lng"
+              type="number"
+              step="any"
+              value={form.deliveryLng}
+              onChange={(event) => handleChange('deliveryLng', event.target.value)}
+              required
+              error={errors.deliveryLng}
+            />
           </div>
         </section>
 
         <section className="new-booking-card">
           <h3>Cargo & Consignee</h3>
           <div className="new-booking-grid">
-            <div className="new-booking-field">
-              <label htmlFor="weight">Load Weight (kg)</label>
-              <input
-                id="weight"
-                type="number"
-                min="1"
-                value={form.weight}
-                onChange={(event) => handleChange('weight', event.target.value)}
-                required
-              />
-            </div>
+            <FormField
+              wrapperClassName="new-booking-field"
+              label="Load Weight (kg)"
+              id="weight"
+              type="number"
+              min="1"
+              value={form.weight}
+              onChange={(event) => handleChange('weight', event.target.value)}
+              required
+              error={errors.weight}
+            />
 
             <div className="new-booking-field">
               <label htmlFor="load-type">Load Type</label>

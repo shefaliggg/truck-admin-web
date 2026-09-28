@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.REACT_APP_API_MODE === 'production'
+  || (process.env.REACT_APP_API_MODE !== 'local' && process.env.NODE_ENV === 'production');
 const defaultOrigin = isProduction
   ? 'http://54.174.219.57:5000'
   : 'http://localhost:5000';

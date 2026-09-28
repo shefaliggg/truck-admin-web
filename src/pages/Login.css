@@ -7,11 +7,7 @@
 }
 
 .login-card {
-  background: linear-gradient(
-    135deg,
-    rgba(var(--brand-primary-rgb), 0.14) 0%,
-    rgba(var(--brand-secondary-rgb), 0.24) 100%
-  );
+  background: rgba(var(--brand-primary-rgb), 0.14);
   padding: 40px;
   border-radius: 12px;
   border: 1px solid rgba(var(--brand-primary-rgb), 0.18);
@@ -82,10 +78,11 @@ button[type='submit']:disabled {
 }
 
 .error-message {
-  color: var(--brand-primary);
+  color: var(--danger);
   margin-bottom: 15px;
   padding: 10px;
-  background: var(--brand-secondary);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
   border-radius: 6px;
   font-size: 13px;
 }

@@ -13,7 +13,7 @@
 
 .users-filters-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1.8fr) minmax(160px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1.8fr) minmax(150px, 1fr) minmax(150px, 1fr) auto;
   gap: 10px;
   align-items: end;
 }
@@ -49,7 +49,9 @@
 }
 
 .user-refresh-wrap {
+  flex-direction: row;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .users-table th.sortable {
@@ -252,6 +254,59 @@
   text-align: center;
   color: var(--brand-primary);
   font-size: 14px;
+}
+
+.verification-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.verification-incomplete {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.verification-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.verification-approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.verification-rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.approve-btn {
+  background: #16a34a;
+  color: white;
+}
+
+.approve-btn:hover {
+  background: #15803d;
+}
+
+.reject-btn {
+  background: #dc2626;
+  color: white;
+}
+
+.reject-btn:hover {
+  background: #b91c1c;
 }
 
 

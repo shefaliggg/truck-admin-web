@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../services/api';
+import FormField from '../components/FormField';
 import './NewDriver.css';
 
 const PLAN_OPTIONS = [
@@ -9,9 +10,32 @@ const PLAN_OPTIONS = [
   { type: '20', percent: 20, desc: 'Full bundle coverage' },
 ];
 
+const REQUIRED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'];
+
+const validateField = (field, value, currentForm) => {
+  switch (field) {
+    case 'firstName':
+    case 'lastName':
+    case 'email':
+    case 'phone':
+      return value.trim() ? '' : 'Required';
+    case 'password':
+      if (!value) return 'Required';
+      if (value.length < 6) return 'Must be at least 6 characters';
+      return '';
+    case 'confirmPassword':
+      if (!value) return 'Required';
+      if (value !== currentForm.password) return 'Passwords do not match';
+      return '';
+    default:
+      return '';
+  }
+};
+
 const NewDriver = ({ onSuccess, onCancel }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -24,7 +48,16 @@ const NewDriver = ({ onSuccess, onCancel }) => {
   });
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    const nextForm = { ...form, [field]: value };
+    setForm(nextForm);
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const msg = validateField(field, value, nextForm);
+      if (msg) return prev;
+      const updated = { ...prev };
+      delete updated[field];
+      return updated;
+    });
   };
 
   const handlePlanChange = (type, percent) => {
@@ -32,28 +65,25 @@ const NewDriver = ({ onSuccess, onCancel }) => {
   };
 
   const validate = () => {
-    if (!form.firstName || !form.lastName || !form.email || !form.phone || !form.password || !form.confirmPassword) {
-      return 'Please fill all fields';
-    }
-    if (form.password.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    if (form.password !== form.confirmPassword) {
-      return 'Passwords do not match';
-    }
-    return '';
+    const newErrors = {};
+    REQUIRED_FIELDS.forEach((field) => {
+      const msg = validateField(field, form[field], form);
+      if (msg) newErrors[field] = msg;
+    });
+    return newErrors;
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
     try {
       setSubmitting(true);
+      setErrors({});
       setError('');
 
       await api.post('/admin/drivers', {
@@ -76,7 +106,7 @@ const NewDriver = ({ onSuccess, onCancel }) => {
 
   return (
     <div className="new-driver-page">
-      <form className="new-driver-form" onSubmit={handleSubmit}>
+      <form className="new-driver-form" onSubmit={handleSubmit} noValidate>
         <section className="new-driver-card">
           <h3>Select Service Plan</h3>
           <div className="new-driver-plan-grid">
@@ -102,66 +132,66 @@ const NewDriver = ({ onSuccess, onCancel }) => {
         <section className="new-driver-card">
           <h3>Driver Account Details</h3>
           <div className="new-driver-grid">
-            <div className="new-driver-field">
-              <label htmlFor="driver-first-name">First Name</label>
-              <input
-                id="driver-first-name"
-                type="text"
-                value={form.firstName}
-                onChange={(e) => handleChange('firstName', e.target.value)}
-                required
-              />
-            </div>
-            <div className="new-driver-field">
-              <label htmlFor="driver-last-name">Last Name</label>
-              <input
-                id="driver-last-name"
-                type="text"
-                value={form.lastName}
-                onChange={(e) => handleChange('lastName', e.target.value)}
-                required
-              />
-            </div>
-            <div className="new-driver-field new-driver-field-wide">
-              <label htmlFor="driver-email">Email</label>
-              <input
-                id="driver-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                required
-              />
-            </div>
-            <div className="new-driver-field new-driver-field-wide">
-              <label htmlFor="driver-phone">Phone</label>
-              <input
-                id="driver-phone"
-                type="text"
-                value={form.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
-                required
-              />
-            </div>
-            <div className="new-driver-field">
-              <label htmlFor="driver-password">Password</label>
-              <input
-                id="driver-password"
-                type="password"
-                value={form.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                required
-              />
-            </div>
-            <div className="new-driver-field">
-              <label htmlFor="driver-confirm-password">Confirm Password</label>
-              <input
-                id="driver-confirm-password"
-                type="password"
-                value={form.confirmPassword}
-                onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                required
-              />
-            </div>
+            <FormField
+              wrapperClassName="new-driver-field"
+              label="First Name"
+              id="driver-first-name"
+              type="text"
+              value={form.firstName}
+              onChange={(e) => handleChange('firstName', e.target.value)}
+              required
+              error={errors.firstName}
+            />
+            <FormField
+              wrapperClassName="new-driver-field"
+              label="Last Name"
+              id="driver-last-name"
+              type="text"
+              value={form.lastName}
+              onChange={(e) => handleChange('lastName', e.target.value)}
+              required
+              error={errors.lastName}
+            />
+            <FormField
+              wrapperClassName="new-driver-field new-driver-field-wide"
+              label="Email"
+              id="driver-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => handleChange('email', e.target.value)}
+              required
+              error={errors.email}
+            />
+            <FormField
+              wrapperClassName="new-driver-field new-driver-field-wide"
+              label="Phone"
+              id="driver-phone"
+              type="text"
+              value={form.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              required
+              error={errors.phone}
+            />
+            <FormField
+              wrapperClassName="new-driver-field"
+              label="Password"
+              id="driver-password"
+              type="password"
+              value={form.password}
+              onChange={(e) => handleChange('password', e.target.value)}
+              required
+              error={errors.password}
+            />
+            <FormField
+              wrapperClassName="new-driver-field"
+              label="Confirm Password"
+              id="driver-confirm-password"
+              type="password"
+              value={form.confirmPassword}
+              onChange={(e) => handleChange('confirmPassword', e.target.value)}
+              required
+              error={errors.confirmPassword}
+            />
           </div>
         </section>
 
