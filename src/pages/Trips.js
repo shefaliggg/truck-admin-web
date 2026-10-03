@@ -26,7 +26,7 @@ const Trips = ({ onViewTrip }) => {
       const data = await response.json();
       const normalizedTrips = (data || []).map((trip) => ({
         id: trip._id,
-        bookingRef: trip.bookingId?._id ? `#${trip.bookingId._id.slice(-6)}` : 'N/A',
+        bookingRef: trip.bookingId?.loadNumber || (trip.bookingId?._id ? `#${trip.bookingId._id.slice(-6)}` : 'N/A'),
         driverName: trip.driverId?.userId
           ? `${trip.driverId.userId.firstName} ${trip.driverId.userId.lastName}`
           : 'N/A',

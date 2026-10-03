@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Toaster, toast } from 'sonner';
 import './Bookings.css';
 import api from '../services/api';
-import FormField from '../components/FormField';
 import getErrorMessage from '../utils/errorHandler';
 
 const TABS = [
   { id: 'all', label: 'All' },
+  { id: 'pending_review', label: 'Pending Review' },
   { id: 'posted', label: 'Posted' },
   { id: 'bidding', label: 'Bidding' },
   { id: 'assigned', label: 'Assigned' },
@@ -31,6 +30,11 @@ const formatDate = (value) => {
 };
 
 const formatMoney = (value) => `$${Number(value).toLocaleString()}`;
+const ROUTE_WIDTH_STORAGE_KEY = 'admin-loads-route-column-width';
+const DEFAULT_ROUTE_WIDTH = 190;
+const MIN_ROUTE_WIDTH = 140;
+const MAX_ROUTE_WIDTH = 480;
+const clampRouteWidth = (width) => Math.min(MAX_ROUTE_WIDTH, Math.max(MIN_ROUTE_WIDTH, width));
 
 // initialAssignment ('all' | 'assigned' | 'unassigned') lets the dashboard KPI cards deep-link here.
 const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
@@ -42,12 +46,11 @@ const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTruckType, setSelectedTruckType] = useState('all');
   const [assignmentFilter, setAssignmentFilter] = useState(initialAssignment);
-
-  const [assignTarget, setAssignTarget] = useState(null);
-  const [drivers, setDrivers] = useState([]);
-  const [selectedDriver, setSelectedDriver] = useState('');
-  const [assignError, setAssignError] = useState('');
-  const [assignLoading, setAssignLoading] = useState(false);
+  const [routeColumnWidth, setRouteColumnWidth] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_ROUTE_WIDTH;
+    const savedWidth = Number(window.localStorage.getItem(ROUTE_WIDTH_STORAGE_KEY));
+    return Number.isFinite(savedWidth) && savedWidth > 0 ? clampRouteWidth(savedWidth) : DEFAULT_ROUTE_WIDTH;
+  });
 
   const fetchLoads = useCallback(async () => {
     try {
@@ -67,6 +70,38 @@ const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
     fetchLoads();
   }, [fetchLoads]);
 
+  useEffect(() => {
+    window.localStorage.setItem(ROUTE_WIDTH_STORAGE_KEY, String(routeColumnWidth));
+  }, [routeColumnWidth]);
+
+  const handleRouteResizeStart = (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = routeColumnWidth;
+    document.body.classList.add('table-column-resizing');
+
+    const handlePointerMove = (moveEvent) => {
+      setRouteColumnWidth(clampRouteWidth(startWidth + moveEvent.clientX - startX));
+    };
+    const handlePointerEnd = () => {
+      document.body.classList.remove('table-column-resizing');
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
+  };
+
+  const handleRouteResizeKeyDown = (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    setRouteColumnWidth((width) => clampRouteWidth(width + direction * 16));
+  };
+
   const truckTypeOptions = useMemo(
     () => [...new Set(loads.map((load) => load.truckType).filter(Boolean))].sort(),
     [loads]
@@ -85,49 +120,12 @@ const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
     });
   }, [loads, activeTab, selectedTruckType, assignmentFilter, searchTerm]);
 
-  const openAssignModal = async (load) => {
-    setAssignTarget(load);
-    setSelectedDriver('');
-    setAssignError('');
-    try {
-      const res = await api.get('/admin/drivers/approved');
-      setDrivers(res.data.drivers || []);
-    } catch (err) {
-      setAssignError(getErrorMessage(err));
-    }
-  };
-
-  const closeAssignModal = () => {
-    if (!assignLoading) setAssignTarget(null);
-  };
-
-  const handleAssignDriver = async (event) => {
-    event.preventDefault();
-    if (!selectedDriver) {
-      setAssignError('Select a driver');
-      return;
-    }
-    setAssignLoading(true);
-    try {
-      await api.post(`/admin/bookings/${assignTarget.id}/assign`, { driverId: selectedDriver });
-      toast.success('Driver assigned', { description: 'The load now follows the rate-confirmation flow.' });
-      setAssignTarget(null);
-      fetchLoads();
-    } catch (err) {
-      setAssignError(err?.response?.data?.message || getErrorMessage(err));
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
   if (loading && loads.length === 0) {
     return <div className="bookings-loading">Loading loads...</div>;
   }
 
   return (
     <div className="bookings-page">
-      <Toaster position="top-right" richColors />
-
       <div className="loads-tabs" role="tablist">
         {TABS.map((tab) => (
           <button
@@ -186,7 +184,23 @@ const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
             <tr>
               <th>Load #</th>
               <th>Shipper</th>
-              <th>Route</th>
+              <th className="loads-route-heading" style={{ width: routeColumnWidth, minWidth: routeColumnWidth, maxWidth: routeColumnWidth }}>
+                Route
+                <div
+                  className="loads-route-resizer"
+                  role="separator"
+                  aria-label="Resize Route column"
+                  aria-orientation="vertical"
+                  aria-valuemin={MIN_ROUTE_WIDTH}
+                  aria-valuemax={MAX_ROUTE_WIDTH}
+                  aria-valuenow={routeColumnWidth}
+                  tabIndex={0}
+                  title="Drag to resize. Use arrow keys, or double-click to reset."
+                  onPointerDown={handleRouteResizeStart}
+                  onKeyDown={handleRouteResizeKeyDown}
+                  onDoubleClick={() => setRouteColumnWidth(DEFAULT_ROUTE_WIDTH)}
+                />
+              </th>
               <th>Quotes</th>
               <th>Status</th>
               <th>Pickup</th>
@@ -199,20 +213,27 @@ const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
               <tr key={load.id}>
                 <td className="loads-number">{load.loadNumber}</td>
                 <td>{load.shipper}</td>
-                <td>{load.pickup || 'N/A'} → {load.delivery || 'N/A'}</td>
+                <td
+                  className="loads-route"
+                  style={{ width: routeColumnWidth, minWidth: routeColumnWidth, maxWidth: routeColumnWidth }}
+                  title={`${load.pickup || 'N/A'} → ${load.delivery || 'N/A'}`}
+                >
+                  {load.pickup || 'N/A'} → {load.delivery || 'N/A'}
+                </td>
                 <td>
                   <span className={`loads-quotes ${load.quoteCount > 0 ? 'has-quotes' : ''}`}>{load.quoteCount}</span>
                   {load.lowestQuote != null && <div className="loads-quote-low">from {formatMoney(load.lowestQuote)}</div>}
                 </td>
-                <td><span className={`loads-stage loads-stage-${load.stage}`}>{STAGE_LABEL[load.stage]}</span></td>
+                <td>
+                  <span className={`loads-stage ${['PENDING_APPROVAL', 'pending_approval'].includes(load.status) ? 'loads-stage-pending-review' : `loads-stage-${load.stage}`}`}>
+                    {['PENDING_APPROVAL', 'pending_approval'].includes(load.status) ? 'Pending Review' : STAGE_LABEL[load.stage] || load.status}
+                  </span>
+                </td>
                 <td>{formatDate(load.pickupDate)}</td>
                 <td>{load.driver || <span className="no-driver">Not assigned</span>}</td>
                 <td>
                   <div className="action-buttons">
                     <button className="action-btn view-btn" onClick={() => onViewBooking?.(load.id)}>View</button>
-                    {!load.driver && (
-                      <button className="action-btn assign-btn" onClick={() => openAssignModal(load)}>Assign Driver</button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -222,42 +243,6 @@ const Bookings = ({ onViewBooking, initialAssignment = 'all' }) => {
 
         {filteredLoads.length === 0 && <div className="no-data">No loads found for this view.</div>}
       </div>
-
-      {assignTarget && (
-        <div className="modal-overlay" onClick={closeAssignModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Assign Driver</h2>
-            <p className="modal-booking-info">
-              {assignTarget.loadNumber}: {assignTarget.pickup || 'N/A'} → {assignTarget.delivery || 'N/A'}
-            </p>
-            <form className="modal-form" onSubmit={handleAssignDriver} noValidate>
-              <FormField
-                as="select"
-                label="Driver"
-                id="load-assign-driver"
-                value={selectedDriver}
-                error={assignError}
-                disabled={assignLoading}
-                onChange={(e) => { setSelectedDriver(e.target.value); setAssignError(''); }}
-              >
-                <option value="">-- Select approved driver --</option>
-                {drivers.map((driver) => (
-                  <option key={driver._id} value={driver._id}>
-                    {driver.userId?.firstName} {driver.userId?.lastName}
-                    {driver.truckId?.truckType ? ` · ${driver.truckId.truckType}` : ''}
-                  </option>
-                ))}
-              </FormField>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-cancel" onClick={closeAssignModal} disabled={assignLoading}>Cancel</button>
-                <button type="submit" className="btn btn-confirm" disabled={assignLoading}>
-                  {assignLoading ? 'Assigning...' : 'Confirm Assignment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

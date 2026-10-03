@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import './BookingDetails.css';
 import api, { API_ORIGIN } from '../services/api';
+import { getBookingMessages } from '../services/chat';
+import { socket } from '../services/socket';
 import getErrorMessage from '../utils/errorHandler';
 
 const NA = 'N/A';
@@ -15,7 +17,21 @@ const formatDate = (value) => {
 const formatDateTime = (value) => {
   if (!value) return NA;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? NA : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? NA : date.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+};
+
+const formatRelativeTime = (value) => {
+  if (!value) return NA;
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  if (!Number.isFinite(elapsedMinutes)) return NA;
+  if (elapsedMinutes < 1) return 'Just now';
+  if (elapsedMinutes < 60) return `${elapsedMinutes} min${elapsedMinutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(elapsedMinutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 };
 
 const formatMoney = (value) => (typeof value === 'number' && !Number.isNaN(value) ? `$${value.toLocaleString()}` : NA);
@@ -35,6 +51,22 @@ const STAGE_LABEL = {
   delivered: 'Delivered',
 };
 
+const TRIP_STATUS_LABEL = {
+  assigned: 'Driver Assigned',
+  accepted: 'Driver Accepted',
+  going_to_pickup: 'En Route to Pickup',
+  arrived_at_pickup: 'At Pickup',
+  loading: 'Loading',
+  loaded: 'Picked Up',
+  in_transit: 'In Transit',
+  arrived_at_drop: 'At Delivery',
+  delivered: 'Delivered',
+  completed: 'Completed',
+  pod_uploaded: 'POD Submitted',
+  pod_approved: 'Documents Verified',
+  pod_rejected: 'POD Rejected',
+};
+
 const DOC_LABEL = { bol: 'Bill of Lading', rate_confirmation: 'Rate Confirmation', other: 'Other' };
 
 const personName = (user) => (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || NA : NA);
@@ -47,21 +79,40 @@ const Field = ({ label, children, sub }) => (
   </div>
 );
 
-const Timing = ({ title, location, date, details }) => (
-  <div>
-    <span>{title}</span>
-    <strong>{location?.address || NA}</strong>
-    <p>
-      {formatDate(date)}
-      {details?.time ? ` at ${details.time}` : ''}
-      {details?.windowStart || details?.windowEnd ? ` · window ${details.windowStart || '?'}–${details.windowEnd || '?'}` : ''}
-      {details?.appointmentRequired ? ' · appointment required' : ''}
-    </p>
-    {(details?.contactName || details?.contactPhone) && (
-      <p>Contact: {[details.contactName, details.contactPhone].filter(Boolean).join(' · ')}</p>
-    )}
-    {details?.instructions && <p>Instructions: {details.instructions}</p>}
-  </div>
+const EventTimeline = ({ events }) => (
+  events.length ? (
+    <ol className="booking-status-timeline">
+      {events.map((event) => (
+        <li key={event.id} className={event.category === 'exception' ? 'exception' : ''}>
+          <span className="booking-status-timeline-dot" />
+          <article className="booking-status-event">
+            <div className="booking-status-event-heading">
+              <strong>{event.title || formatStatus(event.status)}</strong>
+              {event.category === 'exception' && <span className="booking-event-exception">Exception</span>}
+            </div>
+            <time dateTime={new Date(event.changedAt).toISOString()}>{formatDateTime(event.changedAt)}</time>
+            {event.details && <p>{event.details}</p>}
+            {(event.location || event.destination) && (
+              <p className="booking-event-location">
+                {event.location && `Location: ${event.location}`}
+                {event.destination && ` · Delivery: ${event.destination}`}
+              </p>
+            )}
+            {event.reason && <p>Reason: {event.reason}</p>}
+            <div className="booking-event-meta">
+              <span>Performed by: {event.performedBy?.role || 'System'}{event.performedBy?.name ? ` · ${event.performedBy.name}` : ''}</span>
+              <span>{event.automatic ? 'Automatic' : 'Manual action'}</span>
+            </div>
+            {event.relatedDocument?.fileUrl && (
+              <a href={`${API_ORIGIN}/${event.relatedDocument.fileUrl}`} target="_blank" rel="noreferrer">
+                Open {event.relatedDocument.fileName || 'related document'}
+              </a>
+            )}
+          </article>
+        </li>
+      ))}
+    </ol>
+  ) : <div className="booking-quotes-empty">No load activity recorded yet.</div>
 );
 
 const BookingDetails = ({ bookingId, onBack }) => {
@@ -69,6 +120,16 @@ const BookingDetails = ({ bookingId, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [quoteActionLoading, setQuoteActionLoading] = useState(null);
+  const [approvalLoading, setApprovalLoading] = useState(false);
+  const [rateConfirmationApprovalLoading, setRateConfirmationApprovalLoading] = useState(false);
+  const [documentUploadLoading, setDocumentUploadLoading] = useState(false);
+  const [documentType, setDocumentType] = useState('other');
+  const [activeTab, setActiveTab] = useState('Load Details');
+  const [chatTripIds, setChatTripIds] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const [chatTripFound, setChatTripFound] = useState(null);
 
   const fetchBooking = useCallback(async () => {
     if (!bookingId) {
@@ -92,6 +153,49 @@ const BookingDetails = ({ bookingId, onBack }) => {
     fetchBooking();
   }, [fetchBooking]);
 
+  useEffect(() => {
+    if (activeTab !== 'Messages' || !booking?._id) return undefined;
+    let cancelled = false;
+
+    const loadMessages = async () => {
+      setChatLoading(true);
+      setChatError('');
+      setChatTripFound(null);
+      setChatTripIds([]);
+      setChatMessages([]);
+      try {
+        const result = await getBookingMessages(booking._id);
+        if (!cancelled) {
+          setChatTripIds(result.tripIds || []);
+          setChatTripFound((result.tripIds || []).length > 0);
+          setChatMessages(result.messages || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setChatError(getErrorMessage(err));
+        }
+      } finally {
+        if (!cancelled) setChatLoading(false);
+      }
+    };
+
+    loadMessages();
+    return () => { cancelled = true; };
+  }, [activeTab, booking?._id]);
+
+  useEffect(() => {
+    if (activeTab !== 'Messages' || chatTripIds.length === 0) return undefined;
+    chatTripIds.forEach((tripId) => socket.emit('join-trip', tripId));
+    const onMessage = (message) => {
+      if (!chatTripIds.includes(String(message.tripId))) return;
+      setChatMessages((current) => (current.some((item) => item._id === message._id)
+        ? current
+        : [...current, message]));
+    };
+    socket.on('chat-message', onMessage);
+    return () => socket.off('chat-message', onMessage);
+  }, [activeTab, chatTripIds]);
+
   // Cheapest first, so the admin sees the best bid at the top.
   const quotes = useMemo(
     () => (booking?.quotations || []).map((quote, index) => ({ ...quote, index }))
@@ -99,6 +203,19 @@ const BookingDetails = ({ bookingId, onBack }) => {
     [booking]
   );
   const lowestPrice = quotes.length ? quotes[0].price : null;
+
+  const handleApproveLoad = async () => {
+    try {
+      setApprovalLoading(true);
+      await api.put(`/bookings/${booking._id}/approve`);
+      toast.success('Load approved', { description: 'The load is now open for driver bids.' });
+      await fetchBooking();
+    } catch (err) {
+      toast.error('Could not approve load', { description: err?.response?.data?.message || getErrorMessage(err) });
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
 
   const handleSelectQuote = async (quote) => {
     const name = personName(quote.driverId?.userId);
@@ -113,6 +230,45 @@ const BookingDetails = ({ bookingId, onBack }) => {
       toast.error('Could not select quote', { description: err?.response?.data?.message || getErrorMessage(err) });
     } finally {
       setQuoteActionLoading(null);
+    }
+  };
+
+  const handleApproveRateConfirmation = async () => {
+    try {
+      setRateConfirmationApprovalLoading(true);
+      const response = await api.post(`/bookings/${booking._id}/rate-confirmation/approve`);
+      toast.success('Rate Confirmation issued', { description: 'The assigned carrier can now acknowledge the agreed rate.' });
+      await fetchBooking();
+      if (response.data.pdfUrl) window.open(`${API_ORIGIN}${response.data.pdfUrl}`, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast.error('Could not issue Rate Confirmation', { description: err?.response?.data?.message || getErrorMessage(err) });
+    } finally {
+      setRateConfirmationApprovalLoading(false);
+    }
+  };
+
+  const handleDocumentUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Document is too large', { description: 'Choose a file smaller than 5 MB.' });
+      event.target.value = '';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('bookingDocument', file);
+    formData.append('docType', documentType);
+    try {
+      setDocumentUploadLoading(true);
+      await api.post(`/bookings/${booking._id}/documents`, formData);
+      toast.success('Document added to load');
+      await fetchBooking();
+    } catch (err) {
+      toast.error('Could not upload document', { description: err?.response?.data?.message || getErrorMessage(err) });
+    } finally {
+      setDocumentUploadLoading(false);
+      event.target.value = '';
     }
   };
 
@@ -132,10 +288,31 @@ const BookingDetails = ({ bookingId, onBack }) => {
   const shipper = booking.userId;
   const company = shipper?.companyProfile;
   const load = booking.loadDetails || {};
-  const equipment = booking.equipmentDetails || {};
   const reqs = booking.requirements || {};
   const rate = booking.rate || {};
   const documents = booking.documents || [];
+  const loadDocuments = booking.loadDocuments || documents;
+  const timeline = booking.statusTimeline || [];
+  const financials = booking.financials || { invoices: [], settlements: [] };
+  const loadNumber = booking.loadNumber || booking.referenceNumber || `#${String(booking._id).slice(-6)}`;
+  const displayLoadNumber = loadNumber.startsWith('#') || loadNumber.startsWith('CP-') || loadNumber.startsWith('VCG-')
+    ? loadNumber
+    : `#${loadNumber}`;
+  const currentStatus = booking.isDraft
+    ? 'Draft'
+    : ['REJECTED', 'rejected'].includes(booking.status)
+      ? 'Load Rejected'
+      : booking.stage === 'posted' && booking.status === 'PENDING_APPROVAL'
+        ? 'Pending Admin Review'
+        : booking.stage === 'posted' && ['OPEN_FOR_QUOTES', 'open_for_quotes'].includes(booking.status)
+          ? 'Open for Bids'
+          : TRIP_STATUS_LABEL[booking.tripStatus]
+            || (booking.stage === 'assigned' && ['carrier_acknowledged', 'driver_accepted'].includes(booking.rateConfirmation?.status) ? 'Rate Confirmed' : null)
+            || STAGE_LABEL[booking.stage]
+            || formatStatus(booking.status);
+  const latestUpdate = timeline[timeline.length - 1]?.changedAt || booking.updatedAt || booking.createdAt;
+  const tabs = ['Load Details', 'Timeline', 'Documents', 'Quotes', 'Messages', 'Financials'];
+  const dimensions = load.dimensions;
   const requirementFlags = [
     reqs.hazmat && 'Hazmat',
     reqs.oversized && 'Oversized',
@@ -144,7 +321,6 @@ const BookingDetails = ({ bookingId, onBack }) => {
     reqs.loadingType && formatStatus(reqs.loadingType),
     reqs.unloadingType && formatStatus(reqs.unloadingType),
   ].filter(Boolean);
-  const dims = load.dimensions;
 
   return (
     <div className="booking-details-page">
@@ -154,120 +330,166 @@ const BookingDetails = ({ bookingId, onBack }) => {
         <button className="booking-back-btn" onClick={onBack}>Back to Loads</button>
       </div>
 
-      <div className="booking-details-grid">
-        <section className="booking-details-card booking-details-hero">
-          <div>
-            <span className="booking-section-kicker">Load {booking.loadNumber}</span>
-            <h2>{booking.pickupLocation?.address || NA} → {booking.deliveryLocation?.address || NA}</h2>
-            <p>
-              {company?.companyName || personName(shipper)} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}
-              {lowestPrice != null ? ` · lowest ${formatMoney(lowestPrice)}` : ''}
-            </p>
+      <section className={`booking-current-status ${booking.status === 'REJECTED' || booking.status === 'rejected' ? 'exception' : ''}`}>
+        <div className="booking-current-status-main">
+          <div className="booking-load-number-heading">
+            <strong>{displayLoadNumber}</strong>
           </div>
-          <div className="booking-status-chip">{STAGE_LABEL[booking.stage] || formatStatus(booking.status)}</div>
-        </section>
-
-        <section className="booking-details-card">
-          <h3>Shipper</h3>
-          <div className="booking-info-grid">
-            <Field label="Company">{company?.companyName}</Field>
-            <Field label="Contact" sub={shipper?.email}>{personName(shipper)}</Field>
-            <Field label="Phone">{shipper?.phone}</Field>
-            <Field label="Billing Address">{company?.billingAddress}</Field>
-            <Field label="Shipper on Load" sub={booking.shipper?.phone}>{booking.shipper?.name}</Field>
-            <Field label="Consignee" sub={booking.consignee?.phone}>{booking.consignee?.name}</Field>
-          </div>
-        </section>
-
-        <section className="booking-details-card">
-          <h3>Pickup & Delivery</h3>
-          <div className="booking-address-stack">
-            <Timing title="Pickup" location={booking.pickupLocation} date={booking.pickupDate} details={booking.pickupDetails} />
-            <Timing title="Delivery" location={booking.deliveryLocation} date={booking.deliveryDate} details={booking.deliveryDetails} />
-          </div>
-        </section>
-
-        <section className="booking-details-card">
-          <h3>Load Requirements</h3>
-          <div className="booking-info-grid">
-            <Field label="Equipment">{booking.truckType}</Field>
-            <Field label="Trailer Size">{equipment.trailerSize}</Field>
-            <Field label="Weight">{load.weight ? `${load.weight.toLocaleString()} lb` : null}</Field>
-            <Field label="Commodity">{load.type}</Field>
-            <Field label="Pieces">{load.pieces}</Field>
-            <Field label="Package Type">{load.packageType ? formatStatus(load.packageType) : null}</Field>
-            <Field label="Dimensions">{dims && (dims.length || dims.width || dims.height) ? `${dims.length || '?'} × ${dims.width || '?'} × ${dims.height || '?'}` : null}</Field>
-            <Field label="Freight Class">{load.freightClass}</Field>
-            <Field label="Temperature">{equipment.temperatureRequirements}</Field>
-            <Field label="Special Equipment">{equipment.specialEquipment}</Field>
-          </div>
-          {requirementFlags.length > 0 && (
-            <div className="booking-description-block">
-              <span>Requirements</span>
-              <p>{requirementFlags.join(' · ')}</p>
+          <p>
+            {booking.currentLocation?.address ? `${booking.currentLocation.address} · ` : ''}{booking.pickupLocation?.address || NA} <span aria-hidden="true">→</span> {booking.deliveryLocation?.address || NA}
+            <span className="booking-current-status-meta">
+              <span>Driver: {booking.driverId ? personName(booking.driverId.userId) : 'Not assigned'}</span>
+              <span>Equipment: {booking.truckType || NA}</span>
+              <span>Shipper: {company?.companyName || personName(shipper)}</span>
+            </span>
+          </p>
+        </div>
+        <div className="booking-current-status-side">
+          <div className="booking-current-status-actions">
+            <div className="booking-current-status-title">
+              <span className="booking-current-status-dot" />
+              <strong>{currentStatus}</strong>
             </div>
-          )}
-          {(load.description || reqs.otherRequirements) && (
-            <div className="booking-description-block">
-              <span>Notes</span>
-              <p>{[load.description, reqs.otherRequirements].filter(Boolean).join(' — ')}</p>
-            </div>
-          )}
-        </section>
-
-        <section className="booking-details-card">
-          <h3>Rate & Status</h3>
-          <div className="booking-info-grid">
-            <Field label="Current Status" sub={booking.tripStatus ? `Trip: ${formatStatus(booking.tripStatus)}` : null}>
-              {STAGE_LABEL[booking.stage] || formatStatus(booking.status)}
-            </Field>
-            <Field label="Assigned Driver" sub={booking.driverId?.userId?.phone || booking.driverId?.userId?.email}>
-              {booking.driverId ? personName(booking.driverId.userId) : 'Not assigned'}
-            </Field>
-            <Field label="Shipper's Offered Rate" sub={rate.type ? formatStatus(rate.type) : null}>
-              {formatMoney(rate.offeredRate)}
-            </Field>
-            <Field label="Rate Confirmation" sub={booking.rateConfirmation?.amount ? formatMoney(booking.rateConfirmation.amount) : null}>
-              {formatStatus(booking.rateConfirmation?.status)}
-            </Field>
-            <Field label="Payment Terms">{rate.paymentTerms}</Field>
-            <Field label="Posted">{formatDateTime(booking.createdAt)}</Field>
-            <Field label="Reference #">{booking.referenceNumber}</Field>
-            <Field label="Truck">{booking.truckId?.registrationNumber}</Field>
+            {['PENDING_APPROVAL', 'pending_approval'].includes(booking.status) && !booking.isDraft && (
+              <button type="button" className="booking-approve-btn" onClick={handleApproveLoad} disabled={approvalLoading}>
+                {approvalLoading ? 'Approving...' : 'Approve Load'}
+              </button>
+            )}
           </div>
-          {booking.internalNotes && (
-            <div className="booking-description-block">
-              <span>Internal Notes</span>
-              <p>{booking.internalNotes}</p>
+          <div className="booking-current-status-update">
+            <strong>Updated {formatRelativeTime(latestUpdate)}</strong>
+            <span title={formatDateTime(latestUpdate)}>Delivery {formatDate(booking.deliveryDate)}{booking.deliveryDetails?.time ? ` · ${booking.deliveryDetails.time}` : ''}</span>
+          </div>
+        </div>
+      </section>
+
+      <nav className="booking-detail-tabs" role="tablist" aria-label="Load details sections">
+        {tabs.map((tab) => (
+          <button
+            type="button"
+            role="tab"
+            id={`load-tab-${tab.toLowerCase()}`}
+            aria-selected={activeTab === tab}
+            aria-controls="load-detail-panel"
+            className={activeTab === tab ? 'active' : ''}
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+            {tab === 'Quotes' && <span>{quotes.length}</span>}
+            {tab === 'Documents' && <span>{loadDocuments.length}</span>}
+          </button>
+        ))}
+      </nav>
+
+      <main className="booking-detail-panel" role="tabpanel" id="load-detail-panel" aria-labelledby={`load-tab-${activeTab.toLowerCase()}`}>
+        {activeTab === 'Timeline' && (
+          <section className="booking-timeline-section">
+            <div className="booking-panel-heading">
+              <div>
+                <h3>Load Timeline</h3>
+                <p>{timeline.length} recorded event{timeline.length === 1 ? '' : 's'} · oldest first</p>
+              </div>
+              <span className="booking-load-reference">{displayLoadNumber}</span>
             </div>
-          )}
-        </section>
+            <EventTimeline events={timeline} />
+          </section>
+        )}
 
-        <section className="booking-details-card">
-          <h3>Documents</h3>
-          {documents.length === 0 ? (
-            <div className="booking-quotes-empty">No documents uploaded yet.</div>
-          ) : (
-            <ul className="booking-doc-list">
-              {documents.map((doc) => (
-                <li key={doc._id || doc.fileUrl}>
-                  <div>
-                    <strong>{DOC_LABEL[doc.docType] || formatStatus(doc.docType)}</strong>
-                    <p>{doc.fileName || doc.fileUrl} · {formatDateTime(doc.uploadedAt)}</p>
-                  </div>
-                  <a href={`${API_ORIGIN}/${doc.fileUrl}`} target="_blank" rel="noreferrer">Open</a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {activeTab === 'Load Details' && (
+          <section className="booking-detail-section">
+            <div className="booking-panel-heading">
+              <div><h3>Load Details</h3><p>Shipment, contacts, requirements, and notes</p></div>
+              <span className="booking-load-reference">{displayLoadNumber}</span>
+            </div>
+            <div className="booking-info-grid">
+              <Field label="Shipper">{company?.companyName || personName(shipper)}</Field>
+              <Field label="Reference #">{booking.referenceNumber}</Field>
+              <Field label="Pickup" sub={`${formatDate(booking.pickupDate)}${booking.pickupDetails?.time ? ` · ${booking.pickupDetails.time}` : ''}`}>
+                {booking.pickupLocation?.address}
+              </Field>
+              <Field label="Delivery" sub={`${formatDate(booking.deliveryDate)}${booking.deliveryDetails?.time ? ` · ${booking.deliveryDetails.time}` : ''}`}>
+                {booking.deliveryLocation?.address}
+              </Field>
+              <Field label="Shipper Contact" sub={booking.shipper?.phone}>{booking.shipper?.name || personName(shipper)}</Field>
+              <Field label="Consignee" sub={booking.consignee?.phone}>{booking.consignee?.name}</Field>
+              <Field label="Equipment">{booking.truckType}</Field>
+              <Field label="Trailer Size">{booking.equipmentDetails?.trailerSize}</Field>
+              <Field label="Commodity">{load.type}</Field>
+              <Field label="Weight">{load.weight ? `${load.weight.toLocaleString()} lb` : null}</Field>
+              <Field label="Pieces">{load.pieces}</Field>
+              <Field label="Freight Class">{load.freightClass}</Field>
+              <Field label="Dimensions">
+                {dimensions && (dimensions.length || dimensions.width || dimensions.height)
+                  ? `${dimensions.length || '?'} × ${dimensions.width || '?'} × ${dimensions.height || '?'}`
+                  : null}
+              </Field>
+            </div>
+            {requirementFlags.length > 0 && (
+              <div className="booking-description-block">
+                <span>Requirements</span>
+                <p>{requirementFlags.join(' · ')}</p>
+              </div>
+            )}
+            <div className="booking-load-notes">
+              <h4>Load Notes</h4>
+              {[load.description, reqs.otherRequirements, booking.internalNotes].filter(Boolean).length ? (
+                [load.description, reqs.otherRequirements, booking.internalNotes].filter(Boolean).map((note, index) => <p key={index}>{note}</p>)
+              ) : (
+                <p>No load notes provided.</p>
+              )}
+            </div>
+          </section>
+        )}
 
-        <section className="booking-details-card booking-quotes-card">
+        {activeTab === 'Documents' && (
+          <section className="booking-detail-section">
+            <div className="booking-panel-heading">
+              <div><h3>Documents</h3><p>Load paperwork and proof of delivery</p></div>
+              <div className="booking-doc-upload">
+                <select aria-label="Document type" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
+                  <option value="bol">Bill of Lading</option>
+                  <option value="other">Other</option>
+                </select>
+                <label className={documentUploadLoading ? 'disabled' : ''}>
+                  {documentUploadLoading ? 'Uploading...' : 'Upload document'}
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    onChange={handleDocumentUpload}
+                    disabled={documentUploadLoading}
+                  />
+                </label>
+                <span className="booking-load-reference">{loadDocuments.length} files</span>
+              </div>
+            </div>
+            {loadDocuments.length === 0 ? (
+              <div className="booking-quotes-empty">No documents uploaded yet.</div>
+            ) : (
+              <ul className="booking-doc-list">
+                {loadDocuments.map((doc, index) => (
+                  <li key={doc._id || doc.fileUrl || index}>
+                    <div>
+                      <strong>{DOC_LABEL[doc.docType] || formatStatus(doc.docType)}</strong>
+                      <p>{doc.fileName || doc.fileUrl} · {formatDateTime(doc.uploadedAt)}{doc.relatedTo === 'trip' ? ' · Trip' : ''}</p>
+                    </div>
+                    <a href={new URL(doc.fileUrl, `${API_ORIGIN}/`).href} target="_blank" rel="noreferrer">Open</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {activeTab === 'Quotes' && (
+          <section className="booking-detail-section booking-quotes-card">
           <div className="booking-quotes-header">
             <div>
               <h3>Quotes</h3>
               <p>
-                {booking.canSelectQuote
+                {['PENDING_APPROVAL', 'pending_approval'].includes(booking.status)
+                  ? 'Bidding is paused until an admin approves this load.'
+                  : booking.canSelectQuote
                   ? 'Bidding is open. Select a quote to assign the carrier if the shipper needs help.'
                   : 'A carrier is already assigned, so quotes can no longer be selected.'}
               </p>
@@ -343,8 +565,89 @@ const BookingDetails = ({ bookingId, onBack }) => {
               </table>
             </div>
           )}
-        </section>
-      </div>
+          </section>
+        )}
+
+        {activeTab === 'Messages' && (
+          <section className="booking-detail-section">
+            <div className="booking-panel-heading"><div><h3>Messages</h3><p>Load-related communication</p></div></div>
+            <p className="booking-chat-review-note">Read-only conversation. Messages may be reviewed by authorized admins to resolve disputes or provide support.</p>
+            <div className="booking-chat-thread" aria-live="polite">
+              {chatLoading ? (
+                <div className="booking-quotes-empty">Loading conversation...</div>
+              ) : chatError ? (
+                <div className="booking-quotes-empty">{chatError}</div>
+              ) : chatTripFound === false ? (
+                <div className="booking-quotes-empty">Chat becomes available after a driver is assigned to this load.</div>
+              ) : chatMessages.length === 0 ? (
+                <div className="booking-quotes-empty">No messages have been sent for this load yet.</div>
+              ) : (
+                <div className="booking-chat-message-list">
+                  {chatMessages.map((message) => (
+                    <article className={`booking-chat-message ${message.senderRole || 'user'}`} key={message._id}>
+                      <div className="booking-chat-message-meta">
+                        <strong>{message.senderName || formatStatus(message.senderRole)}</strong>
+                        <time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>
+                      </div>
+                      <p>{message.text}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'Financials' && (
+          <section className="booking-detail-section">
+            <div className="booking-panel-heading"><div><h3>Financials</h3><p>Rate, invoice, settlement, and payout records</p></div></div>
+            <div className="booking-financial-summary">
+              <Field label="Accepted Rate">{formatMoney(booking.rateConfirmation?.amount || booking.selectedQuote?.price)}</Field>
+              <Field label="Shipper Offer">{formatMoney(rate.offeredRate)}</Field>
+              <Field label="Payment Terms">{rate.paymentTerms}</Field>
+              <Field label="Rate Confirmation">{formatStatus(booking.rateConfirmation?.status)}</Field>
+            </div>
+            {booking.rateConfirmation?.status === 'awaiting_admin_approval' && (
+              <div className="booking-load-notes">
+                <h4>Rate Confirmation Review</h4>
+                <p>Review the load details and agreed carrier rate above, then issue the confirmation for carrier acknowledgment.</p>
+                <button
+                  type="button"
+                  className="booking-quote-select-btn"
+                  onClick={handleApproveRateConfirmation}
+                  disabled={rateConfirmationApprovalLoading}
+                >
+                  {rateConfirmationApprovalLoading ? 'Issuing...' : 'Approve & Issue Rate Confirmation'}
+                </button>
+              </div>
+            )}
+            {booking.rateConfirmation?.pdfUrl && (
+              <div className="booking-load-notes">
+                <h4>Rate Confirmation PDF</h4>
+                <a href={`${API_ORIGIN}${booking.rateConfirmation.pdfUrl}`} target="_blank" rel="noreferrer">Open Rate Confirmation</a>
+                {booking.rateConfirmation.acknowledgedAt && (
+                  <p>Acknowledged by {booking.rateConfirmation.acknowledgedByName || 'assigned carrier'} · {formatDateTime(booking.rateConfirmation.acknowledgedAt)}</p>
+                )}
+              </div>
+            )}
+            <h4>Invoices</h4>
+            {financials.invoices.length ? financials.invoices.map((invoice) => (
+              <div className="booking-financial-row" key={invoice._id}>
+                <div><strong>Invoice {String(invoice._id).slice(-8)}</strong><span>{formatStatus(invoice.status)} · {formatDateTime(invoice.createdAt)}</span></div>
+                <strong>{formatMoney(invoice.totalAmount)}</strong>
+              </div>
+            )) : <div className="booking-quotes-empty">No invoices recorded.</div>}
+            <h4>Settlements</h4>
+            {financials.settlements.length ? financials.settlements.map((settlement) => (
+              <div className="booking-financial-row" key={settlement._id}>
+                <div><strong>{formatStatus(settlement.status)} · {personName(settlement.driver?.userId)}</strong><span>{formatDateTime(settlement.payoutInfo?.paidAt || settlement.createdAt)}{settlement.payoutInfo?.transactionId ? ` · ${settlement.payoutInfo.transactionId}` : ''}</span></div>
+                <strong>{formatMoney(settlement.totalDriverPayout)}</strong>
+              </div>
+            )) : <div className="booking-quotes-empty">No settlements recorded.</div>}
+          </section>
+        )}
+
+      </main>
     </div>
   );
 };

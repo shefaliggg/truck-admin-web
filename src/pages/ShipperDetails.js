@@ -341,7 +341,7 @@ const ShipperDetails = ({ user, onBack, onViewBooking }) => {
                   <tbody>
                     {filteredBookings.map((b) => (
                       <tr key={b._id}>
-                        <td className="sd-booking-id">#{b._id.slice(-6)}</td>
+                        <td className="sd-booking-id">{b.loadNumber || `#${b._id.slice(-6)}`}</td>
                         <td>{b.pickupLocation?.address || 'N/A'}</td>
                         <td>{b.deliveryLocation?.address || 'N/A'}</td>
                         <td>{b.truckType || 'N/A'}</td>

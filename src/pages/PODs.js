@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import './PODs.css';
 import api, { API_ORIGIN } from '../services/api';
 
+const getPodImageUrl = (image) => {
+  if (!image) return '';
+
+  try {
+    return new URL(image, `${API_ORIGIN}/`).toString();
+  } catch {
+    return '';
+  }
+};
+
 const PODs = () => {
   console.log("PODs component rendered");
   const [pods, setPods] = useState([]);
@@ -79,10 +89,10 @@ console.error('Failed to fetch PODs:', err.response?.data || err.message);
               {pod.images.map((img, idx) => (
                 <img 
                   key={idx} 
-                  src={`${API_ORIGIN}/${img}`} 
+                  src={getPodImageUrl(img)} 
                   alt={`POD ${idx + 1}`} 
                   className="pod-image"
-                  onClick={() => setSelectedPod({ ...pod, selectedImage: img })}
+                  onClick={() => setSelectedPod({ ...pod, selectedImage: getPodImageUrl(img) })}
                 />
               ))}
             </div>

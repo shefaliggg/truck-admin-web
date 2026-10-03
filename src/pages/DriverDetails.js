@@ -393,7 +393,7 @@ const DriverDetails = ({ driverId, onBack }) => {
                   trips.map((trip) => (
                     <tr key={trip._id}>
                       <td>#{trip._id?.slice(-6)}</td>
-                      <td>#{trip.bookingId?._id?.slice(-6) || 'N/A'}</td>
+                      <td>{trip.bookingId?.loadNumber || `#${trip.bookingId?._id?.slice(-6) || 'N/A'}`}</td>
                       <td>{trip.bookingId?.pickupLocation?.address || 'N/A'} to {trip.bookingId?.deliveryLocation?.address || 'N/A'}</td>
                       <td>{formatStatus(trip.status)}</td>
                       <td>{formatDate(trip.updatedAt)}</td>

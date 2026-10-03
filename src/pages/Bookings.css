@@ -114,6 +114,57 @@
   color: var(--brand-primary);
 }
 
+.bookings-table td.loads-route {
+  box-sizing: border-box;
+}
+
+.bookings-table th.loads-route-heading {
+  position: relative;
+  box-sizing: border-box;
+  padding-right: 24px;
+}
+
+.loads-route-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.loads-route-resizer::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  right: 5px;
+  height: 50%;
+  border-right: 2px solid var(--border-soft);
+}
+
+.loads-route-resizer:hover::after,
+.loads-route-resizer:focus-visible::after {
+  border-color: var(--brand-primary);
+}
+
+.loads-route-resizer:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -2px;
+}
+
+.bookings-table td.loads-route {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.table-column-resizing,
+body.table-column-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .bookings-table tbody tr {
   transition: all 0.2s ease;
 }
@@ -490,6 +541,7 @@
 }
 
 .loads-stage-posted { background: rgba(217, 119, 6, 0.14); color: #92400e; }
+.loads-stage-pending-review { background: rgba(217, 119, 6, 0.14); color: #92400e; }
 .loads-stage-awaiting_driver { background: rgba(var(--brand-primary-rgb), 0.14); color: var(--brand-primary); }
 .loads-stage-in_transit,
 .loads-stage-at_delivery { background: rgba(var(--brand-primary-rgb), 0.2); color: var(--brand-primary); }

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 import {
   FiRefreshCw,
   FiPackage,
@@ -282,8 +282,6 @@ const Dashboard = ({
 
   return (
     <div className="dashboard">
-      <Toaster position="top-right" richColors />
-
       {headerSlot && createPortal(
         <>
           <button className="dash-btn-primary" onClick={onAddBooking}><FiPlus size={14} /> Create Load</button>

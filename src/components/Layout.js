@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Toaster } from 'sonner';
 import {
   FiHome,
   FiPackage,
@@ -16,6 +17,7 @@ import {
   FiPlus
 } from 'react-icons/fi';
 import { FaToiletPaper, FaTruckMoving } from 'react-icons/fa';
+import NotificationBell from './NotificationBell';
 import './Layout.css';
 
 const Layout = ({
@@ -51,8 +53,18 @@ const Layout = ({
     { id: 'settings', label: 'Settings', icon: <FiSettings /> },
   ];
 
+  const adminName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Admin Account';
+  const adminInitials = adminName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+
   return (
     <div className="layout">
+      <Toaster position="top-right" richColors />
 
       {/* SIDEBAR */}
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
@@ -99,34 +111,47 @@ const Layout = ({
       <div className="main-container">
 
         <header className="top-header">
-          <h1 className="page-title">
-            {pageTitle || menuItems.find(i => i.id === currentPage)?.label || 'Dashboard'}
-          </h1>
-          <div id="header-actions-slot" className="header-actions-slot" />
-          {showAddBookingButton && (
-            <button className="header-add-booking-btn" onClick={onAddBooking}>
-              <FiPlus />
-              <span>Add Load</span>
-            </button>
-          )}
-          {showAddShipperButton && (
-            <button className="header-add-shipper-btn" onClick={onAddShipper}>
-              <FiPlus />
-              <span>Add Shipper</span>
-            </button>
-          )}
-          {showAddDriverButton && (
-            <button className="header-add-driver-btn" onClick={onAddDriver}>
-              <FiPlus />
-              <span>Add Driver</span>
-            </button>
-          )}
-          {showAddTruckButton && (
-            <button className="header-add-truck-btn" onClick={onAddTruck}>
-              <FiPlus />
-              <span>Add Truck</span>
-            </button>
-          )}
+          <div className="header-heading">
+            <span className="header-eyebrow">Operations</span>
+            <h1 className="page-title">
+              {pageTitle || menuItems.find(i => i.id === currentPage)?.label || 'Dashboard'}
+            </h1>
+          </div>
+          <div className="header-controls">
+            <div id="header-actions-slot" className="header-actions-slot" />
+            {showAddBookingButton && (
+              <button className="header-add-booking-btn" onClick={onAddBooking}>
+                <FiPlus />
+                <span>Add Load</span>
+              </button>
+            )}
+            {showAddShipperButton && (
+              <button className="header-add-shipper-btn" onClick={onAddShipper}>
+                <FiPlus />
+                <span>Add Shipper</span>
+              </button>
+            )}
+            {showAddDriverButton && (
+              <button className="header-add-driver-btn" onClick={onAddDriver}>
+                <FiPlus />
+                <span>Add Driver</span>
+              </button>
+            )}
+            {showAddTruckButton && (
+              <button className="header-add-truck-btn" onClick={onAddTruck}>
+                <FiPlus />
+                <span>Add Truck</span>
+              </button>
+            )}
+            <div className="header-admin" title={adminName}>
+              <span className="header-admin-avatar">{adminInitials}</span>
+              <span className="header-admin-details">
+                <strong>{adminName}</strong>
+                <span>Administrator</span>
+              </span>
+            </div>
+            <NotificationBell user={user} onNavigate={onNavigate} />
+          </div>
         </header>
 
         <main className="content-area">
