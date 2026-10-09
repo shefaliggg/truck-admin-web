@@ -2,30 +2,75 @@ name: Deploy Frontend to S3
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-s3
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Deploy to S3
-        uses: jakejarvis/s3-sync-action@master
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          args: --delete
+          node-version: 20
+          cache: npm
+
+      - name: Check secrets
         env:
-          AWS_S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          SOURCE_DIR: "build"
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          missing=0
+          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION S3_BUCKET; do
+            [ -n "${!v}" ] || { echo "::error::Secret $v is empty or not set"; missing=1; }
+          done
+          [ "$missing" = 0 ] || exit 1
+
+      - name: Write .env from secret (optional)
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: |
+          if [ -n "$ENV_FILE" ]; then
+            printf '%s\n' "$ENV_FILE" | tr -d '\r' > .env.production.local
+            echo "Wrote .env.production.local from ENV_FILE secret"
+          else
+            echo "No ENV_FILE secret; using production defaults from src/services/api.js"
+          fi
+
+      - name: Install & build
+        env:
+          CI: false # don't fail the build on eslint warnings
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload to S3
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          S3_BUCKET=$(printf '%s' "$S3_BUCKET" | tr -d '[:space:]')
+          # hashed assets can be cached forever
+          aws s3 sync build/ "s3://$S3_BUCKET/" --delete \
+            --exclude index.html --exclude asset-manifest.json \
+            --cache-control "public,max-age=31536000,immutable"
+          # entry files must always be fresh so new deploys show up immediately
+          aws s3 cp build/index.html "s3://$S3_BUCKET/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate" --content-type "text/html"
+          aws s3 cp build/asset-manifest.json "s3://$S3_BUCKET/asset-manifest.json" \
+            --cache-control "no-cache"
